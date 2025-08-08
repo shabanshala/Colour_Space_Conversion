@@ -7,13 +7,22 @@
 #include "CSC_global.h"
 
 // private data
-
+extern uint8_t **R;
+extern uint8_t **G;
+extern uint8_t **B;
+extern uint8_t **Y;
+extern uint8_t **Cb;
+extern uint8_t **Cr;
+extern uint8_t **Cb_temp;
+extern uint8_t **Cr_temp;
 // private prototypes
 // =======
 static void CSC_RGB_to_YCC_brute_force_float( int row, int col);
+static void CSC_RGB_to_YCC_unrolled_int(int row, int col);
 
 // =======
 static void CSC_RGB_to_YCC_brute_force_int( int row, int col);
+uint8_t saturation_int(int argument);
 
 // =======
 static uint8_t chrominance_downsample(
@@ -193,6 +202,20 @@ static void CSC_RGB_to_YCC_brute_force_int( int row, int col) {
                                                (uint8_t)Cr_pixel_11);
 } // END of CSC_RGB_to_YCC_brute_force_int()
 
+
+// uint8_t saturation_int(int argument) {
+//   // Use a bit-shift instead of division for efficiency
+//   int scaled_max = 255 << 8;
+
+//   if (argument > scaled_max) {
+//     return (uint8_t)255;
+//   } else if (argument < 0) {
+//     return (uint8_t)0;
+//   } else {
+//     return (uint8_t)(argument >> 8);
+//   }
+// }
+
 // =======
 static uint8_t chrominance_downsample(
     uint8_t C_pixel_00, uint8_t C_pixel_01,
@@ -216,12 +239,24 @@ static uint8_t chrominance_downsample(
   }
 } // END of chrominance_downsample()
 
+static void CSC_RGB_to_YCC_unrolled_int(int row, int col) {
+  // Process a 4x4 block of pixels by unrolling the inner loop.
+  CSC_RGB_to_YCC_brute_force_int(row, col);
+  CSC_RGB_to_YCC_brute_force_int(row, col + 2);
+  CSC_RGB_to_YCC_brute_force_int(row + 2, col);
+  CSC_RGB_to_YCC_brute_force_int(row + 2, col + 2);
+} // END of CSC_RGB_to_YCC_unrolled_int()
+
 // =======
-void CSC_RGB_to_YCC( void) {
+void CSC_RGB_to_YCC(input_row, input_col) {
+
+// void CSC_RGB_to_YCC( void) {
   int row, col; // indices for row and column
 //
-  for( row=0; row<IMAGE_ROW_SIZE; row+=2) {
-    for( col=0; col<IMAGE_COL_SIZE; col+=2) { 
+  // for( row=0; row<IMAGE_ROW_SIZE; row+=2) {
+  //   for( col=0; col<IMAGE_COL_SIZE; col+=2) { 
+  for(row = 0; row<input_row; row +=4) {
+    for(col = 0; col<input_col; col += 4) {
       //printf( "\n[row,col] = [%02i,%02i]\n\n", row, col);
       switch (RGB_to_YCC_ROUTINE) {
         case 0:
@@ -232,9 +267,14 @@ void CSC_RGB_to_YCC( void) {
         case 2:
           CSC_RGB_to_YCC_brute_force_int( row, col);
           break;
+        case 3:
+          CSC_RGB_to_YCC_unrolled_int(row, col);
+          break;
         default:
           break;
       }
+
+
 //      printf( "Luma_00  = %02hhx\n", Y[row+0][col+0]);
 //      printf( "Luma_01  = %02hhx\n", Y[row+0][col+1]);
 //      printf( "Luma_10  = %02hhx\n", Y[row+1][col+0]);
@@ -243,4 +283,3 @@ void CSC_RGB_to_YCC( void) {
   }
 
 } // END of CSC_RGB_to_YCC()
-

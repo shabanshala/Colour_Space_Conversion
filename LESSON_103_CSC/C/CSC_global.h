@@ -1,71 +1,77 @@
+#ifndef CSC_GLOBAL_H
+#define CSC_GLOBAL_H
+
 #include <stdint.h>
 
-#define K 8 // bitwidth
-#define UNITY (1 << K)
-#define IMAGE_ROW_SIZE 64
-#define IMAGE_COL_SIZE 48
+// Image dimensions
+#define IMAGE_ROW_SIZE 768 // Rows (Height)
+#define IMAGE_COL_SIZE 1024 // Columns (Width)
 
-// RGB_to_YCC_ROUTINE
-//     1 for CSC_RGB_to_YCC_brute_force_float()
-//     2 for CSC_RGB_to_YCC_brute_force_int()
+// Color Space Conversion Routine Selection
+// 0: No conversion
+// 1: Floating-point (brute force)
+// 2: Fixed-point integer (brute force)
 #define RGB_to_YCC_ROUTINE 1
+#define YCC_to_RGB_ROUTINE 3
 
-// YCC_to_RGB_ROUTINE
-//     1 for CSC_YCC_to_RGB_brute_force_float()
-//     2 for CSC_YCC_to_RGB_brute_force_int()
-#define YCC_to_RGB_ROUTINE 1
+// Chrominance Downsampling Mode
+// 0: No downsampling (or return 0)
+// 1: Discard three samples, keep one (C_pixel_00)
+// 2: Average of four samples
+#define CHROMINANCE_DOWNSAMPLING_MODE 2
+// Chrominance Upsampling Mode
+// 0: No upsampling (or return 0)
+// 1: Replicate one sample into four
+// 2: Linear interpolation
+#define CHROMINANCE_UPSAMPLING_MODE 2
 
-// CHROMINANCE_DOWNSAMPLING_MODE = 
-//     0 for returning zero (no chrominance)
-//     1 for discarding three pixels and keeping one
-//     2 for averaging four pixels
-#define CHROMINANCE_DOWNSAMPLING_MODE 1
+#define K 8
 
-// CHROMINANCE_UPSAMPLING_MODE = 
-//     0 for returning zero (no chrominance)
-//     1 for replicating one pixel into three
-//     2 for interpolation with two pixels
-#define CHROMINANCE_UPSAMPLING_MODE 1
+// Fixed-point coefficients for RGB to YCC conversion (scaled by 2^K_RGB_YCC)
+#define C11 66  // round(0.257 * 2^8)
+#define C12 129 // round(0.504 * 2^8)
+#define C13 25  // round(0.098 * 2^8)
+#define C21 38  // round(0.148 * 2^8)
+#define C22 74  // round(0.291 * 2^8)
+#define C23 112 // round(0.439 * 2^8)
+#define C31 112 // round(0.439 * 2^8)
+#define C32 94  // round(0.368 * 2^8)
+#define C33 18  // round(0.071 * 2^8)
 
-// RGB-to-YCC coefficients in 8-bit representation
-#define C11  66
-#define C12 129
-#define C13  25
-#define C21  38
-#define C22  74
-#define C23 112
-#define C31 112
-#define C32  94
-#define C33  18
+// Fixed-point coefficients for YCC to RGB conversion (scaled by 2^K_YCC_RGB)
+#define D1 74   // round(1.164 * 2^6)
+#define D2 102  // round(1.596 * 2^6)
+#define D3 52   // round(0.813 * 2^6)
+#define D4 25   // round(0.391 * 2^6)
+#define D5 129  // round(2.018 * 2^6)
 
-// YCC-to-RGB coefficients in 8-bit representation
-#define D1  74
-#define D2 102
-#define D3  52
-#define D4  25
-#define D5 129
+// Global image data arrays - Declared as extern
+// These are *declarations*, indicating that the variables are defined elsewhere.
+// extern uint8_t R[IMAGE_ROW_SIZE][IMAGE_COL_SIZE];
+// extern uint8_t G[IMAGE_ROW_SIZE][IMAGE_COL_SIZE];
+// extern uint8_t B[IMAGE_ROW_SIZE][IMAGE_COL_SIZE];
+// extern uint8_t Y[IMAGE_ROW_SIZE][IMAGE_COL_SIZE];
+// extern uint8_t Cb[IMAGE_ROW_SIZE / 2][IMAGE_COL_SIZE / 2];
+// extern uint8_t Cr[IMAGE_ROW_SIZE / 2][IMAGE_COL_SIZE / 2];
+// extern uint8_t Cb_temp[IMAGE_ROW_SIZE][IMAGE_COL_SIZE];
+// extern uint8_t Cr_temp[IMAGE_ROW_SIZE][IMAGE_COL_SIZE];
 
-/* choose between definition (GLOBAL is defined)      *
- * and declaration (GLOBAL is undefined)              *
- * GLOBAL is defined in exactly one file CSC_main.c)  */
+extern uint8_t **R;
+extern uint8_t **G;
+extern uint8_t **B;
+extern uint8_t **Y;
+extern uint8_t **Cb;
+extern uint8_t **Cr;
+extern uint8_t **Cb_temp;
+extern uint8_t **Cr_temp;
 
-#ifndef GLOBAL
-#define EXTERN extern
-#else
-#define EXTERN
-#endif
 
-/* prototypes of global functions */
-void CSC_RGB_to_YCC( void);
-void CSC_YCC_to_RGB( void);
+// Function prototypes for CSC routines (defined in CSC_RGB_to_YCC_01.c and CSC_YCC_to_RGB_01.c)
+// void CSC_RGB_to_YCC(void);
+// void CSC_YCC_to_RGB(void);
 
-/* global variables */
-EXTERN uint8_t R[IMAGE_ROW_SIZE][IMAGE_COL_SIZE]; // Red array pointer
-EXTERN uint8_t G[IMAGE_ROW_SIZE][IMAGE_COL_SIZE]; // Green array pointer
-EXTERN uint8_t B[IMAGE_ROW_SIZE][IMAGE_COL_SIZE]; // Blue array pointer
-EXTERN uint8_t Y[IMAGE_ROW_SIZE][IMAGE_COL_SIZE]; // Luminance array pointer
-EXTERN uint8_t Cb[IMAGE_ROW_SIZE >> 1][IMAGE_COL_SIZE >> 1]; // Chrominance (Cb) array pointer
-EXTERN uint8_t Cr[IMAGE_ROW_SIZE >> 1][IMAGE_COL_SIZE >> 1]; // Chrominance (Cr) array pointer
-EXTERN uint8_t Cb_temp[IMAGE_ROW_SIZE][IMAGE_COL_SIZE]; // Chrominance (Cb) temp array pointer
-EXTERN uint8_t Cr_temp[IMAGE_ROW_SIZE][IMAGE_COL_SIZE]; // Chrominance (Cr) temp array pointer
+void CSC_RGB_to_YCC(input_row, input_col);
+void CSC_YCC_to_RGB(input_row, input_col);
+
+#endif // CSC_GLOBAL_H
 

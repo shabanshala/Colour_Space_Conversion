@@ -1,123 +1,719 @@
-// Copyright 2023 Mihai SIMA (mihai.sima@ieee.org).  All rights reserved.
+
+
+// #include <stdlib.h>
+// #include <stdio.h>
+// #include <stdint.h>
+// #include <time.h> // Include the time header for the clock() function
+// #include "CSC_global.h" // Include the global header
+
+// // Define global image data arrays as pointers.
+// // These are the *definitions*, allocating memory for the pointers.
+// uint8_t **R;
+// uint8_t **G;
+// uint8_t **B;
+// uint8_t **Y;
+// uint8_t **Cb;
+// uint8_t **Cr;
+// uint8_t **Cb_temp;
+// uint8_t **Cr_temp;
+
+// // Helper function to dynamically allocate a 2D array
+// uint8_t** allocate_2d_array(int rows, int cols) {
+//     uint8_t** array = (uint8_t**)malloc(rows * sizeof(uint8_t*));
+//     if (array == NULL) {
+//         fprintf(stderr, "Memory allocation failed for rows (size: %d).\n", rows);
+//         return NULL;
+//     }
+//     for (int i = 0; i < rows; i++) {
+//         array[i] = (uint8_t*)malloc(cols * sizeof(uint8_t));
+//         if (array[i] == NULL) {
+//             fprintf(stderr, "Memory allocation failed for columns (size: %d) at row %d.\n", cols, i);
+//             // Clean up already allocated memory
+//             for (int j = 0; j < i; j++) {
+//                 free(array[j]);
+//             }
+//             free(array);
+//             return NULL;
+//         }
+//     }
+//     return array;
+// }
+
+// // Helper function to deallocate a 2D array
+// void free_2d_array(uint8_t** array, int rows) {
+//     if (array == NULL) return;
+//     for (int i = 0; i < rows; i++) {
+//         free(array[i]);
+//     }
+//     free(array);
+// }
+
+// // Corrected array initializers: using 'const char *' and adding semicolons.
+// const char *input_files_RGB[3] = {
+//     "./image_input_RGB_64_48_03.data",
+//     "./image_input_RGB_640_480_01.data",
+//     "./image_input_RGB_768_1024_03.data"
+// };
+
+// const char *input_files_echo[3][3] = {
+//     {"./image_echo_R_64_48_03.data",
+//     "./image_echo_G_64_48_03.data",
+//     "./image_echo_B_64_48_03.data"},
+
+//     {"./image_echo_R_640_480_02.data",
+//     "./image_echo_G_640_480_02.data",
+//     "./image_echo_B_640_480_02.data"},
+
+//     {"./image_echo_R_768_1024_03.data",
+//     "./image_echo_G_768_1024_03.data",
+//     "./image_echo_B_768_1024_03.data"}
+// };
+
+// const char *output_files_YCC[3][3] = {
+//  {
+//     "./image_output_Y_64_48_03.data",
+//     "./image_output_Cb_64_48_03.data",
+//     "./image_output_Cr_64_48_03.data"
+//  },
+//  {
+//     "./image_output_Y_640_480_02.data",
+//     "./image_output_Cb_640_480_02.data",
+//     "./image_output_Cr_640_480_02.data"
+//  },
+//  {
+//     "./image_output_Y_768_1024_03.data",
+//     "./image_output_Cb_768_1024_03.data",
+//     "./image_output_Cr_768_1024_03.data"
+//  }
+// };
+
+// const char *output_files_RGB[3] = {
+//  "./image_output_RGB_64_48_03.data",
+//  "./image_output_RGB_640_480_02.data",
+//  "./image_output_RGB_768_1024_03.data"
+// };
+
+// int image_sizes[3][2] = {
+//     {64, 48},
+//     {640, 480},
+//     {768, 1024}
+// };
+
+// int main(void) {
+//     int row, col;
+//     FILE *f_ID_input_RGB;
+//     FILE *f_ID_echo_R;
+//     FILE *f_ID_echo_G;
+//     FILE *f_ID_echo_B;
+//     FILE *f_ID_output_Y;
+//     FILE *f_ID_output_Cb;
+//     FILE *f_ID_output_Cr;
+//     FILE *f_ID_output_RGB;
+
+//     for(int i = 0; i < 3; i++) {
+//         clock_t start_time, end_time;
+//         double elapsed_time;
+
+//         start_time = clock(); // Start the timer
+
+//         int current_row_size = image_sizes[i][0];
+//         int current_col_size = image_sizes[i][1];
+//         const char* RGB_filename = input_files_RGB[i];
+//         // printf("Starting RGB->YCC->RGB conversion for file: %s\n", RGB_filename);
+
+//         // Dynamically allocate memory for all arrays
+//         R = allocate_2d_array(current_row_size, current_col_size);
+//         G = allocate_2d_array(current_row_size, current_col_size);
+//         B = allocate_2d_array(current_row_size, current_col_size);
+//         Y = allocate_2d_array(current_row_size, current_col_size);
+//         Cb = allocate_2d_array(current_row_size / 2, current_col_size / 2);
+//         Cr = allocate_2d_array(current_row_size / 2, current_col_size / 2);
+//         Cb_temp = allocate_2d_array(current_row_size, current_col_size);
+//         Cr_temp = allocate_2d_array(current_row_size, current_col_size);
+
+//         if (!R || !G || !B || !Y || !Cb || !Cr || !Cb_temp || !Cr_temp) {
+//             fprintf(stderr, "Failed to allocate memory for image data.\n");
+//             // Free any memory that was successfully allocated before exiting
+//             free_2d_array(R, current_row_size);
+//             free_2d_array(G, current_row_size);
+//             free_2d_array(B, current_row_size);
+//             free_2d_array(Y, current_row_size);
+//             free_2d_array(Cb, current_row_size / 2);
+//             free_2d_array(Cr, current_row_size / 2);
+//             free_2d_array(Cb_temp, current_row_size);
+//             free_2d_array(Cr_temp, current_row_size);
+//             return 1;
+//         }
+
+//         f_ID_input_RGB = fopen(RGB_filename, "rb");
+//         if( f_ID_input_RGB == NULL) {
+//             printf( "Error: Could not open input file %s\n", RGB_filename);
+//             // Free all dynamically allocated memory before exiting
+//             free_2d_array(R, current_row_size);
+//             free_2d_array(G, current_row_size);
+//             free_2d_array(B, current_row_size);
+//             free_2d_array(Y, current_row_size);
+//             free_2d_array(Cb, current_row_size / 2);
+//             free_2d_array(Cr, current_row_size / 2);
+//             free_2d_array(Cb_temp, current_row_size);
+//             free_2d_array(Cr_temp, current_row_size);
+//             return( 1);
+//         }
+
+//         f_ID_echo_R = fopen( input_files_echo[i][0], "wb");
+//         if( f_ID_echo_R == NULL) {
+//             printf( "Error: Could not open echo R file.\n");
+//             fclose(f_ID_input_RGB);
+//             free_2d_array(R, current_row_size);
+//             free_2d_array(G, current_row_size);
+//             free_2d_array(B, current_row_size);
+//             free_2d_array(Y, current_row_size);
+//             free_2d_array(Cb, current_row_size / 2);
+//             free_2d_array(Cr, current_row_size / 2);
+//             free_2d_array(Cb_temp, current_row_size);
+//             free_2d_array(Cr_temp, current_row_size);
+//             return( 1);
+//         }
+
+//         f_ID_echo_G = fopen( input_files_echo[i][1], "wb");
+//         if( f_ID_echo_G == NULL) {
+//             printf( "Error: Could not open echo G file.\n");
+//             fclose(f_ID_echo_R);
+//             fclose(f_ID_input_RGB);
+//             free_2d_array(R, current_row_size);
+//             free_2d_array(G, current_row_size);
+//             free_2d_array(B, current_row_size);
+//             free_2d_array(Y, current_row_size);
+//             free_2d_array(Cb, current_row_size / 2);
+//             free_2d_array(Cr, current_row_size / 2);
+//             free_2d_array(Cb_temp, current_row_size);
+//             free_2d_array(Cr_temp, current_row_size);
+//             return( 1);
+//         }
+
+//         f_ID_echo_B = fopen( input_files_echo[i][2], "wb");
+//         if( f_ID_echo_B == NULL) {
+//             printf( "Error: Could not open echo B file.\n");
+//             fclose(f_ID_echo_G);
+//             fclose(f_ID_echo_R);
+//             fclose(f_ID_input_RGB);
+//             free_2d_array(R, current_row_size);
+//             free_2d_array(G, current_row_size);
+//             free_2d_array(B, current_row_size);
+//             free_2d_array(Y, current_row_size);
+//             free_2d_array(Cb, current_row_size / 2);
+//             free_2d_array(Cr, current_row_size / 2);
+//             free_2d_array(Cb_temp, current_row_size);
+//             free_2d_array(Cr_temp, current_row_size);
+//             return( 1);
+//         }
+
+//         // printf("opened echo files: \n%s\n%s\n%s\n", input_files_echo[i][0],input_files_echo[i][1], input_files_echo[i][2]);
+
+//         // printf("Reading input RGB image and echoing components...\n");
+//         for( row=0; row < current_row_size; row++) {
+//             for( col=0; col < current_col_size; col++) {
+//                 R[row][col] = (uint8_t)( fgetc( f_ID_input_RGB));
+//                 fputc( R[row][col], f_ID_echo_R);
+//                 G[row][col] = (uint8_t)( fgetc( f_ID_input_RGB));
+//                 fputc( G[row][col], f_ID_echo_G);
+//                 B[row][col] = (uint8_t)( fgetc( f_ID_input_RGB));
+//                 fputc( B[row][col], f_ID_echo_B);
+//             }
+//         }
+//         fclose( f_ID_echo_B);
+//         fclose( f_ID_echo_G);
+//         fclose( f_ID_echo_R);
+//         fclose( f_ID_input_RGB);
+//         // printf("Finished reading input RGB and echoing components.\n");
+
+//         CSC_RGB_to_YCC(current_row_size, current_col_size);
+
+//         // printf("writing to ycc output files: \n%s\n%s\n%s\n", output_files_YCC[i][0], output_files_YCC[i][1], output_files_YCC[i][2]);
+
+//         f_ID_output_Y = fopen( output_files_YCC[i][0], "wb");
+//         if( f_ID_output_Y == NULL) {
+//             fprintf( stderr, "Error: Could not open output Y file %s\n",
+//                 output_files_YCC[i][0]);
+//             free_2d_array(R, current_row_size);
+//             free_2d_array(G, current_row_size);
+//             free_2d_array(B, current_row_size);
+//             free_2d_array(Y, current_row_size);
+//             free_2d_array(Cb, current_row_size / 2);
+//             free_2d_array(Cr, current_row_size / 2);
+//             free_2d_array(Cb_temp, current_row_size);
+//             free_2d_array(Cr_temp, current_row_size);
+//             return( 1);
+//         }
+
+//         f_ID_output_Cb = fopen( output_files_YCC[i][1], "wb");
+//         if( f_ID_output_Cb == NULL) {
+//             fprintf( stderr, "Error: Could not open output Cb file %s\n",
+//                 output_files_YCC[i][1]);
+//             fclose(f_ID_output_Y);
+//             free_2d_array(R, current_row_size);
+//             free_2d_array(G, current_row_size);
+//             free_2d_array(B, current_row_size);
+//             free_2d_array(Y, current_row_size);
+//             free_2d_array(Cb, current_row_size / 2);
+//             free_2d_array(Cr, current_row_size / 2);
+//             free_2d_array(Cb_temp, current_row_size);
+//             free_2d_array(Cr_temp, current_row_size);
+//             return( 1);
+//         }
+
+//         f_ID_output_Cr = fopen( output_files_YCC[i][2], "wb");
+//         if( f_ID_output_Cr == NULL) {
+//             fprintf( stderr, "Error: Could not open output Cr file %s\n",
+//                 output_files_YCC[i][2]);
+//             fclose(f_ID_output_Cb);
+//             fclose(f_ID_output_Y);
+//             free_2d_array(R, current_row_size);
+//             free_2d_array(G, current_row_size);
+//             free_2d_array(B, current_row_size);
+//             free_2d_array(Y, current_row_size);
+//             free_2d_array(Cb, current_row_size / 2);
+//             free_2d_array(Cr, current_row_size / 2);
+//             free_2d_array(Cb_temp, current_row_size);
+//             free_2d_array(Cr_temp, current_row_size);
+//             return( 1);
+//         }
+
+//         // printf("Writing Y component to file...\n");
+//         for( row=0; row < current_row_size; row++) {
+//             for( col=0; col < current_col_size; col++) {
+//                 fputc( Y[row][col], f_ID_output_Y);
+//             }
+//         }
+//         fclose( f_ID_output_Y);
+//         // printf("Writing Y component complete.\n");
+
+//         // printf("Writing Cb and Cr components to file...\n");
+//         for( row=0; row < (current_row_size >> 1); row++) {
+//             for( col=0; col < (current_col_size >> 1); col++) {
+//                 fputc( Cb[row][col], f_ID_output_Cb);
+//                 fputc( Cr[row][col], f_ID_output_Cr);
+//             }
+//         }
+//         fclose( f_ID_output_Cr);
+//         fclose( f_ID_output_Cb);
+//         // printf("Writing Cb and Cr components complete.\n");
+
+//         CSC_YCC_to_RGB(current_row_size, current_col_size);
+
+
+//         f_ID_output_RGB = fopen( output_files_RGB[i], "wb");
+//         if( f_ID_output_RGB == NULL) {
+//             printf( "Error: Could not open output RGB file.\n");
+//             free_2d_array(R, current_row_size);
+//             free_2d_array(G, current_row_size);
+//             free_2d_array(B, current_row_size);
+//             free_2d_array(Y, current_row_size);
+//             free_2d_array(Cb, current_row_size / 2);
+//             free_2d_array(Cr, current_row_size / 2);
+//             free_2d_array(Cb_temp, current_row_size);
+//             free_2d_array(Cr_temp, current_row_size);
+//             return( 1);
+//         }
+
+//         // printf("Writing output RGB image to file...\n");
+//         // printf("Output saved to file: %s\n", output_files_RGB[i]);
+//         for( row=0; row < current_row_size; row++) {
+//             for( col=0; col < current_col_size; col++) {
+//                 fputc( R[row][col], f_ID_output_RGB);
+//                 fputc( G[row][col], f_ID_output_RGB);
+//                 fputc( B[row][col], f_ID_output_RGB);
+//             }
+//         }
+//         fclose( f_ID_output_RGB);
+//         // printf("Output RGB image writing complete.\n");
+//         // printf("Color Space Conversion test bench finished successfully!\n");
+
+//         // Free the dynamically allocated memory
+//         free_2d_array(R, current_row_size);
+//         free_2d_array(G, current_row_size);
+//         free_2d_array(B, current_row_size);
+//         free_2d_array(Y, current_row_size);
+//         free_2d_array(Cb, current_row_size / 2);
+//         free_2d_array(Cr, current_row_size / 2);
+//         free_2d_array(Cb_temp, current_row_size);
+//         free_2d_array(Cr_temp, current_row_size);
+
+//         end_time = clock(); // Stop the timer
+//         elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+//         printf("Elapsed time for image size %dx%d: %.4f seconds\n", current_row_size, current_col_size, elapsed_time);
+//     }
+
+//     return 0;
+// }
+
+
+
+// Copyright 2023 Mihai SIMA (mihai.sima@ieee.org). All rights reserved.
 // Color Space Conversion (CSC) in fixed-point arithmetic
-// main() function
+// RGB to YCC conversion
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
-//#include <string.h>
-#include <math.h>
+#include <time.h> // Include the time header for the clock() function
+#include <string.h> // Include the string header for the memset() function
+#include "CSC_global.h" // Include the global header
 
-#define GLOBAL
-#include "CSC_global.h"
+// Define global image data arrays as pointers.
+// These are the *definitions*, allocating memory for the pointers.
+uint8_t **R;
+uint8_t **G;
+uint8_t **B;
+uint8_t **Y;
+uint8_t **Cb;
+uint8_t **Cr;
+uint8_t **Cb_temp;
+uint8_t **Cr_temp;
 
-int main( void) {
-  int row, col;
-  FILE *f_ID_input_RGB;
-  FILE *f_ID_echo_R;
-  FILE *f_ID_echo_G;
-  FILE *f_ID_echo_B;
-  FILE *f_ID_output_Y;
-  FILE *f_ID_output_Cb;
-  FILE *f_ID_output_Cr;
-  FILE *f_ID_output_RGB;
+// Helper function to dynamically allocate a 2D array
+uint8_t** allocate_2d_array(int rows, int cols) {
+    uint8_t** array = (uint8_t**)malloc(rows * sizeof(uint8_t*));
+    if (array == NULL) {
+        fprintf(stderr, "Memory allocation failed for rows (size: %d).\n", rows);
+        return NULL;
+    }
+    for (int i = 0; i < rows; i++) {
+        array[i] = (uint8_t*)malloc(cols * sizeof(uint8_t));
+        if (array[i] == NULL) {
+            fprintf(stderr, "Memory allocation failed for columns (size: %d) at row %d.\n", cols, i);
+            // Clean up already allocated memory
+            for (int j = 0; j < i; j++) {
+                free(array[j]);
+            }
+            free(array);
+            return NULL;
+        }
+    }
+    return array;
+}
 
-  f_ID_input_RGB = fopen( "./image_input_RGB_64_48_03.data", "rb");
-  if( f_ID_input_RGB == NULL) {
-    printf( "Cannot open file.\n");
-    return( 1);
-  }
+// Helper function to deallocate a 2D array
+void free_2d_array(uint8_t** array, int rows) {
+    if (array == NULL) return;
+    for (int i = 0; i < rows; i++) {
+        if (array[i] != NULL) {
+            free(array[i]);
+        }
+    }
+    free(array);
+}
 
-  f_ID_echo_R = fopen( "./image_echo_R_64_48_03.data", "wb");
-  if( f_ID_echo_R == NULL) {
-    printf( "Cannot open file.\n");
-    return( 1);
-  }
+// Corrected array initializers: using 'const char *' and adding semicolons.
+const char *input_files_RGB[3] = {
+    "./image_input_RGB_64_48_03.data",
+    "./image_input_RGB_640_480_01.data",
+    "./image_input_RGB_768_1024_03.data"
+};
 
-  f_ID_echo_G = fopen( "./image_echo_G_64_48_03.data", "wb");
-  if( f_ID_echo_G == NULL) {
-    printf( "Cannot open file.\n");
-    return( 1);
-  }
+const char *input_files_echo[3][3] = {
+    {"./image_echo_R_64_48_03.data",
+    "./image_echo_G_64_48_03.data",
+    "./image_echo_B_64_48_03.data"},
 
-  f_ID_echo_B = fopen( "./image_echo_B_64_48_03.data", "wb");
-  if( f_ID_echo_B == NULL) {
-    printf( "Cannot open file.\n");
-    return( 1);
-  }
+    {"./image_echo_R_640_480_02.data",
+    "./image_echo_G_640_480_02.data",
+    "./image_echo_B_640_480_02.data"},
 
-  for( row=0; row < IMAGE_ROW_SIZE; row++)
-  for( col=0; col < IMAGE_COL_SIZE; col++) {
-    R[row][col] = (uint8_t)( fgetc( f_ID_input_RGB));
-    fputc( R[row][col], f_ID_echo_R);
-//
-    G[row][col] = (uint8_t)( fgetc( f_ID_input_RGB));
-    fputc( G[row][col], f_ID_echo_G);
-//
-    B[row][col] = (uint8_t)( fgetc( f_ID_input_RGB));
-    fputc( B[row][col], f_ID_echo_B);
-  }
-  fclose( f_ID_echo_B);
-  fclose( f_ID_echo_G);
-  fclose( f_ID_echo_R);
-  fclose( f_ID_input_RGB);
+    {"./image_echo_R_768_1024_03.data",
+    "./image_echo_G_768_1024_03.data",
+    "./image_echo_B_768_1024_03.data"}
+};
 
-  CSC_RGB_to_YCC();
+const char *output_files_YCC[3][3] = {
+ {
+    "./image_output_Y_64_48_03.data",
+    "./image_output_Cb_64_48_03.data",
+    "./image_output_Cr_64_48_03.data"
+ },
+ {
+    "./image_output_Y_640_480_02.data",
+    "./image_output_Cb_640_480_02.data",
+    "./image_output_Cr_640_480_02.data"
+ },
+ {
+    "./image_output_Y_768_1024_03.data",
+    "./image_output_Cb_768_1024_03.data",
+    "./image_output_Cr_768_1024_03.data"
+ }
+};
 
-  f_ID_output_Y = fopen( "./image_output_Y_64_48_03.data", "wb");
-  if( f_ID_output_Y == NULL) {
-    fprintf( stderr, "Could not open %s\n", 
-             "./image_output_Y_64_48_03.data");
-    return( 1);
-  }
-  
-  f_ID_output_Cb = fopen( "./image_output_Cb_64_48_03.data", "wb");
-  if( f_ID_output_Cb == NULL) {
-    fprintf( stderr, "Could not open %s\n", 
-             "./image_output_Cb_64_48_03.data");
-    return( 1);
-  }
-  
-  f_ID_output_Cr = fopen( "./image_output_Cr_64_48_03.data", "wb");
-  if( f_ID_output_Cr == NULL) {
-    fprintf( stderr, "Could not open %s\n", 
-             "./image_output_Cr_64_48_03.data");
-    return( 1);
-  }
-  
-  for( row=0; row < IMAGE_ROW_SIZE; row++)
-  for( col=0; col < IMAGE_COL_SIZE; col++) {
-    //fprintf( f_ID_output_Y, "%02hhx", Y[row][col]);
-    fputc( Y[row][col], f_ID_output_Y);
-  }
+const char *output_files_RGB[3] = {
+ "./image_output_RGB_64_48_03.data",
+ "./image_output_RGB_640_480_02.data",
+ "./image_output_RGB_768_1024_03.data"
+};
 
-  for( row=0; row < (IMAGE_ROW_SIZE >> 1); row++)
-  for( col=0; col < (IMAGE_COL_SIZE >> 1); col++) {
-    //fprintf( f_ID_output_Cb, "%02hhx", Cb[row][col]);
-    fputc( Cb[row][col], f_ID_output_Cb);
-    //fprintf( f_ID_output_Cr, "%02hhx", Cr[row][col]);
-    fputc( Cr[row][col], f_ID_output_Cr);
-  }
+int image_sizes[3][2] = {
+    {64, 48},
+    {640, 480},
+    {768, 1024}
+};
 
-  fclose( f_ID_output_Cr);
-  fclose( f_ID_output_Cb);
-  fclose( f_ID_output_Y);
+int main(void) {
+    int row, col;
+    FILE *f_ID_input_RGB;
+    FILE *f_ID_echo_R;
+    FILE *f_ID_echo_G;
+    FILE *f_ID_echo_B;
+    FILE *f_ID_output_Y;
+    FILE *f_ID_output_Cb;
+    FILE *f_ID_output_Cr;
+    FILE *f_ID_output_RGB;
 
-  CSC_YCC_to_RGB();
+    for(int i = 0; i < 3; i++) {
+        clock_t start_time, end_time;
+        double elapsed_time;
 
-  f_ID_output_RGB = fopen( "./image_output_RGB_64_48_03.data", "wb");
-  if( f_ID_output_RGB == NULL) {
-    printf( "Cannot open file.\n");
-    return( 1);
-  }
+        start_time = clock(); // Start the timer
 
-  for( row=0; row < IMAGE_ROW_SIZE; row++)
-  for( col=0; col < IMAGE_COL_SIZE; col++) {
-    fputc( R[row][col], f_ID_output_RGB);
-    fputc( G[row][col], f_ID_output_RGB);
-    fputc( B[row][col], f_ID_output_RGB);
-  }
-  fclose( f_ID_output_RGB);
+        int current_row_size = image_sizes[i][0];
+        int current_col_size = image_sizes[i][1];
+        const char* RGB_filename = input_files_RGB[i];
+        // printf("Starting RGB->YCC->RGB conversion for file: %s\n", RGB_filename);
 
-} // END of main()
+        // Dynamically allocate memory for all arrays
+        R = allocate_2d_array(current_row_size, current_col_size);
+        G = allocate_2d_array(current_row_size, current_col_size);
+        B = allocate_2d_array(current_row_size, current_col_size);
+        Y = allocate_2d_array(current_row_size, current_col_size);
+        Cb = allocate_2d_array(current_row_size / 2, current_col_size / 2);
+        Cr = allocate_2d_array(current_row_size / 2, current_col_size / 2);
+        Cb_temp = allocate_2d_array(current_row_size, current_col_size);
+        Cr_temp = allocate_2d_array(current_row_size, current_col_size);
 
+        if (!R || !G || !B || !Y || !Cb || !Cr || !Cb_temp || !Cr_temp) {
+            fprintf(stderr, "Failed to allocate memory for image data.\n");
+            // Free any memory that was successfully allocated before exiting
+            free_2d_array(R, current_row_size);
+            free_2d_array(G, current_row_size);
+            free_2d_array(B, current_row_size);
+            free_2d_array(Y, current_row_size);
+            free_2d_array(Cb, current_row_size / 2);
+            free_2d_array(Cr, current_row_size / 2);
+            free_2d_array(Cb_temp, current_row_size);
+            free_2d_array(Cr_temp, current_row_size);
+            return 1;
+        }
+
+        // === FIX START ===
+        // Initialize output and temporary arrays to zero to avoid Valgrind errors
+        // from writing uninitialized bytes when the image size is smaller than the allocated size.
+        for (row = 0; row < current_row_size; row++) {
+            memset(Y[row], 0, current_col_size);
+            memset(Cb_temp[row], 0, current_col_size);
+            memset(Cr_temp[row], 0, current_col_size);
+        }
+        for (row = 0; row < (current_row_size >> 1); row++) {
+            memset(Cb[row], 0, (current_col_size >> 1));
+            memset(Cr[row], 0, (current_col_size >> 1));
+        }
+        // === FIX END ===
+
+
+        f_ID_input_RGB = fopen(RGB_filename, "rb");
+        if( f_ID_input_RGB == NULL) {
+            printf( "Error: Could not open input file %s\n", RGB_filename);
+            // Free all dynamically allocated memory before exiting
+            free_2d_array(R, current_row_size);
+            free_2d_array(G, current_row_size);
+            free_2d_array(B, current_row_size);
+            free_2d_array(Y, current_row_size);
+            free_2d_array(Cb, current_row_size / 2);
+            free_2d_array(Cr, current_row_size / 2);
+            free_2d_array(Cb_temp, current_row_size);
+            free_2d_array(Cr_temp, current_row_size);
+            return( 1);
+        }
+
+        f_ID_echo_R = fopen( input_files_echo[i][0], "wb");
+        if( f_ID_echo_R == NULL) {
+            printf( "Error: Could not open echo R file.\n");
+            fclose(f_ID_input_RGB);
+            free_2d_array(R, current_row_size);
+            free_2d_array(G, current_row_size);
+            free_2d_array(B, current_row_size);
+            free_2d_array(Y, current_row_size);
+            free_2d_array(Cb, current_row_size / 2);
+            free_2d_array(Cr, current_row_size / 2);
+            free_2d_array(Cb_temp, current_row_size);
+            free_2d_array(Cr_temp, current_row_size);
+            return( 1);
+        }
+
+        f_ID_echo_G = fopen( input_files_echo[i][1], "wb");
+        if( f_ID_echo_G == NULL) {
+            printf( "Error: Could not open echo G file.\n");
+            fclose(f_ID_echo_R);
+            fclose(f_ID_input_RGB);
+            free_2d_array(R, current_row_size);
+            free_2d_array(G, current_row_size);
+            free_2d_array(B, current_row_size);
+            free_2d_array(Y, current_row_size);
+            free_2d_array(Cb, current_row_size / 2);
+            free_2d_array(Cr, current_row_size / 2);
+            free_2d_array(Cb_temp, current_row_size);
+            free_2d_array(Cr_temp, current_row_size);
+            return( 1);
+        }
+
+        f_ID_echo_B = fopen( input_files_echo[i][2], "wb");
+        if( f_ID_echo_B == NULL) {
+            printf( "Error: Could not open echo B file.\n");
+            fclose(f_ID_echo_G);
+            fclose(f_ID_echo_R);
+            fclose(f_ID_input_RGB);
+            free_2d_array(R, current_row_size);
+            free_2d_array(G, current_row_size);
+            free_2d_array(B, current_row_size);
+            free_2d_array(Y, current_row_size);
+            free_2d_array(Cb, current_row_size / 2);
+            free_2d_array(Cr, current_row_size / 2);
+            free_2d_array(Cb_temp, current_row_size);
+            free_2d_array(Cr_temp, current_row_size);
+            return( 1);
+        }
+
+        // printf("opened echo files: \n%s\n%s\n%s\n", input_files_echo[i][0],input_files_echo[i][1], input_files_echo[i][2]);
+
+        // printf("Reading input RGB image and echoing components...\n");
+        for( row=0; row < current_row_size; row++) {
+            for( col=0; col < current_col_size; col++) {
+                R[row][col] = (uint8_t)( fgetc( f_ID_input_RGB));
+                fputc( R[row][col], f_ID_echo_R);
+                G[row][col] = (uint8_t)( fgetc( f_ID_input_RGB));
+                fputc( G[row][col], f_ID_echo_G);
+                B[row][col] = (uint8_t)( fgetc( f_ID_input_RGB));
+                fputc( B[row][col], f_ID_echo_B);
+            }
+        }
+        fclose( f_ID_echo_B);
+        fclose( f_ID_echo_G);
+        fclose( f_ID_echo_R);
+        fclose( f_ID_input_RGB);
+        // printf("Finished reading input RGB and echoing components.\n");
+
+        CSC_RGB_to_YCC(current_row_size, current_col_size);
+
+        // printf("writing to ycc output files: \n%s\n%s\n%s\n", output_files_YCC[i][0], output_files_YCC[i][1], output_files_YCC[i][2]);
+
+        f_ID_output_Y = fopen( output_files_YCC[i][0], "wb");
+        if( f_ID_output_Y == NULL) {
+            fprintf( stderr, "Error: Could not open output Y file %s\n",
+                output_files_YCC[i][0]);
+            free_2d_array(R, current_row_size);
+            free_2d_array(G, current_row_size);
+            free_2d_array(B, current_row_size);
+            free_2d_array(Y, current_row_size);
+            free_2d_array(Cb, current_row_size / 2);
+            free_2d_array(Cr, current_row_size / 2);
+            free_2d_array(Cb_temp, current_row_size);
+            free_2d_array(Cr_temp, current_row_size);
+            return( 1);
+        }
+
+        f_ID_output_Cb = fopen( output_files_YCC[i][1], "wb");
+        if( f_ID_output_Cb == NULL) {
+            fprintf( stderr, "Error: Could not open output Cb file %s\n",
+                output_files_YCC[i][1]);
+            fclose(f_ID_output_Y);
+            free_2d_array(R, current_row_size);
+            free_2d_array(G, current_row_size);
+            free_2d_array(B, current_row_size);
+            free_2d_array(Y, current_row_size);
+            free_2d_array(Cb, current_row_size / 2);
+            free_2d_array(Cr, current_row_size / 2);
+            free_2d_array(Cb_temp, current_row_size);
+            free_2d_array(Cr_temp, current_row_size);
+            return( 1);
+        }
+
+        f_ID_output_Cr = fopen( output_files_YCC[i][2], "wb");
+        if( f_ID_output_Cr == NULL) {
+            fprintf( stderr, "Error: Could not open output Cr file %s\n",
+                output_files_YCC[i][2]);
+            fclose(f_ID_output_Cb);
+            fclose(f_ID_output_Y);
+            free_2d_array(R, current_row_size);
+            free_2d_array(G, current_row_size);
+            free_2d_array(B, current_row_size);
+            free_2d_array(Y, current_row_size);
+            free_2d_array(Cb, current_row_size / 2);
+            free_2d_array(Cr, current_row_size / 2);
+            free_2d_array(Cb_temp, current_row_size);
+            free_2d_array(Cr_temp, current_row_size);
+            return( 1);
+        }
+
+        // printf("Writing Y component to file...\n");
+        for( row=0; row < current_row_size; row++) {
+            for( col=0; col < current_col_size; col++) {
+                fputc( Y[row][col], f_ID_output_Y);
+            }
+        }
+        fclose( f_ID_output_Y);
+        // printf("Writing Y component complete.\n");
+
+        // printf("Writing Cb and Cr components to file...\n");
+        for( row=0; row < (current_row_size >> 1); row++) {
+            for( col=0; col < (current_col_size >> 1); col++) {
+                fputc( Cb[row][col], f_ID_output_Cb);
+                fputc( Cr[row][col], f_ID_output_Cr);
+            }
+        }
+        fclose( f_ID_output_Cr);
+        fclose( f_ID_output_Cb);
+        // printf("Writing Cb and Cr components complete.\n");
+
+        CSC_YCC_to_RGB(current_row_size, current_col_size);
+
+
+        f_ID_output_RGB = fopen( output_files_RGB[i], "wb");
+        if( f_ID_output_RGB == NULL) {
+            printf( "Error: Could not open output RGB file.\n");
+            free_2d_array(R, current_row_size);
+            free_2d_array(G, current_row_size);
+            free_2d_array(B, current_row_size);
+            free_2d_array(Y, current_row_size);
+            free_2d_array(Cb, current_row_size / 2);
+            free_2d_array(Cr, current_row_size / 2);
+            free_2d_array(Cb_temp, current_row_size);
+            free_2d_array(Cr_temp, current_row_size);
+            return( 1);
+        }
+
+        // printf("Writing output RGB image to file...\n");
+        // printf("Output saved to file: %s\n", output_files_RGB[i]);
+        for( row=0; row < current_row_size; row++) {
+            for( col=0; col < current_col_size; col++) {
+                fputc( R[row][col], f_ID_output_RGB);
+                fputc( G[row][col], f_ID_output_RGB);
+                fputc( B[row][col], f_ID_output_RGB);
+            }
+        }
+        fclose( f_ID_output_RGB);
+        // printf("Output RGB image writing complete.\n");
+        // printf("Color Space Conversion test bench finished successfully!\n");
+
+        // Free the dynamically allocated memory
+        free_2d_array(R, current_row_size);
+        free_2d_array(G, current_row_size);
+        free_2d_array(B, current_row_size);
+        free_2d_array(Y, current_row_size);
+        free_2d_array(Cb, current_row_size / 2);
+        free_2d_array(Cr, current_row_size / 2);
+        free_2d_array(Cb_temp, current_row_size);
+        free_2d_array(Cr_temp, current_row_size);
+
+        end_time = clock(); // Stop the timer
+        elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+        printf("Elapsed time for image size %dx%d: %.4f seconds\n", current_row_size, current_col_size, elapsed_time);
+    }
+
+    return 0;
+}
