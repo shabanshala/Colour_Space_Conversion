@@ -4,7 +4,7 @@
 
 #define IMAGE_WIDTH 1024
 #define IMAGE_HEIGHT 768
-#define FILENAME "./image_input_RGB_768_1024_03.data" // Updated filename to reflect dimensions
+#define FILENAME "./image_input_RGB_768_1024_03.data" 
 
 int main() {
     FILE *f_out = fopen(FILENAME, "wb");

@@ -11,8 +11,8 @@
 // 0: No conversion
 // 1: Floating-point (brute force)
 // 2: Fixed-point integer (brute force)
-#define RGB_to_YCC_ROUTINE 1
-#define YCC_to_RGB_ROUTINE 3
+#define RGB_to_YCC_ROUTINE 4
+#define YCC_to_RGB_ROUTINE 1
 
 // Chrominance Downsampling Mode
 // 0: No downsampling (or return 0)
@@ -45,6 +45,7 @@
 #define D4 25   // round(0.391 * 2^6)
 #define D5 129  // round(2.018 * 2^6)
 
+
 // Global image data arrays - Declared as extern
 // These are *declarations*, indicating that the variables are defined elsewhere.
 // extern uint8_t R[IMAGE_ROW_SIZE][IMAGE_COL_SIZE];
@@ -70,8 +71,8 @@ extern uint8_t **Cr_temp;
 // void CSC_RGB_to_YCC(void);
 // void CSC_YCC_to_RGB(void);
 
-void CSC_RGB_to_YCC(input_row, input_col);
-void CSC_YCC_to_RGB(input_row, input_col);
+void CSC_RGB_to_YCC(int input_col, int input_row);
+void CSC_YCC_to_RGB(int input_col, int input_row);
 
 #endif // CSC_GLOBAL_H
 
