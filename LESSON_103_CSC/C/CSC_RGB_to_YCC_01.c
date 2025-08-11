@@ -379,7 +379,7 @@ void CSC_RGB_to_YCC(int input_col, int input_row) {
           CSC_RGB_to_YCC_unrolled_int(row, col);
           break;
         case 4:
-          CSC_RGB_to_YCC_vector(row, col, input_col, input_row);
+          CSC_RGB_to_YCC_vector(row, col, input_row, input_col);
           // CSC_RGB_to_YCC_vector(col, row);
           break;
         default:

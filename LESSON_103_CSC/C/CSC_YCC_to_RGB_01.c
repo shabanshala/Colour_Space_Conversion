@@ -6,23 +6,14 @@
 #include "CSC_global.h"
 #include <arm_neon.h>
 
-// private data
-// New global variable for the switch case
-// static int YCC_to_RGB_ROUTINE = 2; // Assuming 2 is the brute-force integer routine
-// static int CHROMINANCE_UPSAMPLING_MODE = 1; // Default to the first case, as it's a simple duplicate
-// Fixed point arithmetic constants. Assuming these are defined in CSC_global.h
-// #define D1 298
-// #define D2 409
-// #define D3 208
-// #define D4 100
-// #define D5 516
-// #define K 8
 
 // private prototypes
 // =======
 static uint8_t saturation_float( float argument);
 static void CSC_YCC_to_RGB_brute_force_float( int row, int col);
 static void CSC_YCC_to_RGB_vector(int row, int col);
+static int IMG_H = 0;
+static int IMG_W = 0;
 
 // =======
 static uint8_t saturation_int( int argument);
@@ -125,15 +116,6 @@ static uint8_t saturation_int( int argument) {
   }
 } // END of saturation_int()
 
-// static uint8_t saturation_int(int argument) {
-//   if (argument > 65280) { // 255 << 8
-//     return (uint8_t)255;
-//   } else if (argument < 0) {
-//     return (uint8_t)0;
-//   } else {
-//     return (uint8_t)(argument >> 8); // Right shift instead of division by 256
-//   }
-// }
 
 // =======
 static void CSC_YCC_to_RGB_brute_force_int( int row, int col) {
@@ -260,103 +242,105 @@ static void CSC_YCC_to_RGB_brute_force_int( int row, int col) {
 } // END of CSC_YCC_to_RGB_brute_force_int()
 
 static void CSC_YCC_to_RGB_vector(int row, int col) {
+  
+  const int shift = 6; // same scaling as integer path
 
-  // We only need Y for conversion back to RGB, Cb and Cr are already in temp arrays
-  // 0, 1
-  // 2, 3
   int16_t Y_data[4] = {
-    (int16_t)Y[row][col],
-    (int16_t)Y[row][col + 1],
-    (int16_t)Y[row + 1][col],
-    (int16_t)Y[row + 1][col + 1]
+      (int16_t)Y[row][col],
+      (int16_t)Y[row][col + 1],
+      (int16_t)Y[row + 1][col],
+      (int16_t)Y[row + 1][col + 1]
+  };
+  int16_t Cb_data[4] = {
+      (int16_t)Cb_temp[row][col],
+      (int16_t)Cb_temp[row][col + 1],
+      (int16_t)Cb_temp[row + 1][col],
+      (int16_t)Cb_temp[row + 1][col + 1]
+  };
+  int16_t Cr_data[4] = {
+      (int16_t)Cr_temp[row][col],
+      (int16_t)Cr_temp[row][col + 1],
+      (int16_t)Cr_temp[row + 1][col],
+      (int16_t)Cr_temp[row + 1][col + 1]
   };
 
-  // Load single Cb and Cr values for the 2x2 block from subsampled arrays
-  // 0, 1
-  // 2, 3
-  int16_t Cb_val = (int16_t)Cb[row >> 1][col >> 1];
-  int16_t Cr_val = (int16_t)Cr[row >> 1][col >> 1];
+  // NEON loads
+  int16x4_t Y_vec  = vld1_s16(Y_data);  
+  int16x4_t Cb_vec = vld1_s16(Cb_data); 
+  int16x4_t Cr_vec = vld1_s16(Cr_data);
 
-  // Cb and Cr values to 4-lane NEON vectors,
-  // so we can process all 4 Y pixels in parallel with the same Cb/Cr
-  int16x4_t Cb_vec = vdup_n_s16(Cb_val);
-  int16x4_t Cr_vec = vdup_n_s16(Cr_val);
+  // widen to 32-bit for math
+  int32x4_t Y32  = vmovl_s16(Y_vec);
+  int32x4_t Cb32 = vmovl_s16(Cb_vec);
+  int32x4_t Cr32 = vmovl_s16(Cr_vec);
 
-  // Create Y vector, we already have the 4 pixels loaded
-  int16x4_t Y_vec = vld1_s16(Y_data);
+  // subtract offsets (Y-16, Cb-128, Cr-128)
+  Y32  = vsubq_s32(Y32,  vdupq_n_s32(16));
+  Cb32 = vsubq_s32(Cb32, vdupq_n_s32(128));
+  Cr32 = vsubq_s32(Cr32, vdupq_n_s32(128));
 
-  // Prevent overflow, expanding 16 bit vector to 32
-  int32x4_t Y32 = vmovl_s16(Y_vec);   
-  int32x4_t Cb32 = vmovl_s16(Cb_vec); 
-  int32x4_t Cr32 = vmovl_s16(Cr_vec); 
+  // compute R, G, B using scaled integer constants (D1..D5)
+  // R = D1*(Y-16) + D2*(Cr-128)
+  int32x4_t R_pix = vmlaq_n_s32(vmulq_n_s32(Y32, D1), Cr32, D2);
 
-  //Y_pixel = Y_pixel - 16
-  int32x4_t Y_pix = vsubq_s32(Y32, vdupq_n_s32(16));
-  //Cb = Cb - 128
-  int32x4_t Cb_pix = vsubq_s32(Cb32, vdupq_n_s32(128));
-  //Cr = Cr - 128
-  int32x4_t Cr_pix = vsubq_s32(Cr32, vdupq_n_s32(128));
+  // G = D1*(Y-16) - D3*(Cb-128) - D4*(Cr-128)
+  int32x4_t G_pix = vsubq_s32(vmulq_n_s32(Y32, D1), vmulq_n_s32(Cb32, D3));
+  G_pix = vsubq_s32(G_pix, vmulq_n_s32(Cr32, D4));
 
-  // Calculate R_pixel
-  // Y = Y * D1
-  Y_pix = vmulq_n_s32(Y_pix, D1);
-  // R = Y + Cr * D2
-  int32x4_t R_pix = vmlaq_n_s32(Y_pix, Cr_pix, D2);
+  // B = D1*(Y-16) + D5*(Cb-128)
+  int32x4_t B_pix = vmlaq_n_s32(vmulq_n_s32(Y32, D1), Cb32, D5);
 
-  // Calculate G_pixel
-  // G = Y - D3 * Cr - D4 * Cb
-  // We already have D1 * Y from before so no need to calculate again
-  int32x4_t G_pix = vmlsq_n_s32(Y_pix, Cb_pix, D3); // Sub D3*Cb
-  G_pix = vmlsq_n_s32(G_pix, Cr_pix, D4);           // Sub D4*Cr
-
-  // Calculate B_pixel
-  // B = Y + D5*Cb
-  // Y is already calculated with D1 scaling from before
-  int32x4_t B_pix = vmlaq_n_s32(Y_pix, Cb_pix, D5); // Add D5 * Cb
-
-  // Add rounding offset before shifting right by 6 (because constants scaled by 2^6)
-  const int shift = 6;
+  // add rounding and shift down
   int32x4_t round = vdupq_n_s32(1 << (shift - 1));
   R_pix = vaddq_s32(R_pix, round);
   G_pix = vaddq_s32(G_pix, round);
   B_pix = vaddq_s32(B_pix, round);
 
-  // Right shift results by 6 bits to scale back to 8-bit range
   R_pix = vshrq_n_s32(R_pix, shift);
   G_pix = vshrq_n_s32(G_pix, shift);
   B_pix = vshrq_n_s32(B_pix, shift);
 
-  // Change 32 bit to 16 bit vectors for conversion
-  int16x4_t R16 = vmovn_s32(R_pix);
-  int16x4_t G16 = vmovn_s32(G_pix);
-  int16x4_t B16 = vmovn_s32(B_pix);
+  int32x4_t zero32 = vdupq_n_s32(0);
+  int32x4_t max32  = vdupq_n_s32(255);
+  R_pix = vminq_s32(vmaxq_s32(R_pix, zero32), max32);
+  G_pix = vminq_s32(vmaxq_s32(G_pix, zero32), max32);
+  B_pix = vminq_s32(vmaxq_s32(B_pix, zero32), max32);
 
-  // Load pixels into corresponding RGB array
-  // 0, 1
-  // 2, 3
+  //Get pixels from vector
+  int32_t r0 = vgetq_lane_s32(R_pix, 0);
+  int32_t r1 = vgetq_lane_s32(R_pix, 1);
+  int32_t r2 = vgetq_lane_s32(R_pix, 2);
+  int32_t r3 = vgetq_lane_s32(R_pix, 3);
 
-  // Clamp values to 0..255 (unsigned 16-bit)
-  uint16x4_t R_u16 = vmin_u16(vmax_u16(vreinterpret_u16_s16(R16), vdup_n_u16(0)), vdup_n_u16(255));
-  uint16x4_t G_u16 = vmin_u16(vmax_u16(vreinterpret_u16_s16(G16), vdup_n_u16(0)), vdup_n_u16(255));
-  uint16x4_t B_u16 = vmin_u16(vmax_u16(vreinterpret_u16_s16(B16), vdup_n_u16(0)), vdup_n_u16(255));
+  int32_t g0 = vgetq_lane_s32(G_pix, 0);
+  int32_t g1 = vgetq_lane_s32(G_pix, 1);
+  int32_t g2 = vgetq_lane_s32(G_pix, 2);
+  int32_t g3 = vgetq_lane_s32(G_pix, 3);
 
-  // Store the results back into the global R, G, B arrays,
-  // maintaining the 2x2 block layout:
-  R[row + 0][col + 0] = (uint8_t)vget_lane_u16(R_u16, 0);
-  R[row + 0][col + 1] = (uint8_t)vget_lane_u16(R_u16, 1);
-  R[row + 1][col + 0] = (uint8_t)vget_lane_u16(R_u16, 2);
-  R[row + 1][col + 1] = (uint8_t)vget_lane_u16(R_u16, 3);
+  int32_t b0 = vgetq_lane_s32(B_pix, 0);
+  int32_t b1 = vgetq_lane_s32(B_pix, 1);
+  int32_t b2 = vgetq_lane_s32(B_pix, 2);
+  int32_t b3 = vgetq_lane_s32(B_pix, 3);
 
-  G[row + 0][col + 0] = (uint8_t)vget_lane_u16(G_u16, 0);
-  G[row + 0][col + 1] = (uint8_t)vget_lane_u16(G_u16, 1);
-  G[row + 1][col + 0] = (uint8_t)vget_lane_u16(G_u16, 2);
-  G[row + 1][col + 1] = (uint8_t)vget_lane_u16(G_u16, 3);
+  // store to correct 2x2 positions
+  R[row + 0][col + 0] = (uint8_t)r0;
+  R[row + 0][col + 1] = (uint8_t)r1;
+  R[row + 1][col + 0] = (uint8_t)r2;
+  R[row + 1][col + 1] = (uint8_t)r3;
 
-  B[row + 0][col + 0] = (uint8_t)vget_lane_u16(B_u16, 0);
-  B[row + 0][col + 1] = (uint8_t)vget_lane_u16(B_u16, 1);
-  B[row + 1][col + 0] = (uint8_t)vget_lane_u16(B_u16, 2);
-  B[row + 1][col + 1] = (uint8_t)vget_lane_u16(B_u16, 3);
+  G[row + 0][col + 0] = (uint8_t)g0;
+  G[row + 0][col + 1] = (uint8_t)g1;
+  G[row + 1][col + 0] = (uint8_t)g2;
+  G[row + 1][col + 1] = (uint8_t)g3;
+
+  B[row + 0][col + 0] = (uint8_t)b0;
+  B[row + 0][col + 1] = (uint8_t)b1;
+  B[row + 1][col + 0] = (uint8_t)b2;
+  B[row + 1][col + 1] = (uint8_t)b3;
+
 }
+
+
 
 // =======
 static void chrominance_upsample(
@@ -478,14 +462,19 @@ static void chrominance_array_upsample(int input_row, int input_col) {
 
 } // END of chrominance_array_upsample()
 
+
 // =======
 void CSC_YCC_to_RGB(int input_row, int input_col) {
   int row, col; // indices for row and column
-//
+
+  IMG_H = input_row;
+  IMG_W = input_col;
   chrominance_array_upsample(input_row, input_col);
 
-  for(row = 0; row < input_row; row+=2) {
-    for(col = 0; col < input_col; col += 2) {
+  for(row = 0; row < input_row-1; row+=2) {
+    for(col = 0; col < input_col-1; col += 2) {
+  // for(row = 0; row < input_row; row+=2) {
+  //   for(col = 0; col < input_col; col += 2) {
       switch (YCC_to_RGB_ROUTINE) {
         case 0:
           break;
@@ -496,7 +485,8 @@ void CSC_YCC_to_RGB(int input_row, int input_col) {
           CSC_YCC_to_RGB_brute_force_int( row, col);
           break;
         case 3:
-          CSC_YCC_to_RGB_vector(row, col);
+          CSC_YCC_to_RGB_vector( row, col);
+          break;
         default:
           break;
       }

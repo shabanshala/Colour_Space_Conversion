@@ -12,7 +12,7 @@
 // 1: Floating-point (brute force)
 // 2: Fixed-point integer (brute force)
 #define RGB_to_YCC_ROUTINE 4
-#define YCC_to_RGB_ROUTINE 1
+#define YCC_to_RGB_ROUTINE 3
 
 // Chrominance Downsampling Mode
 // 0: No downsampling (or return 0)
