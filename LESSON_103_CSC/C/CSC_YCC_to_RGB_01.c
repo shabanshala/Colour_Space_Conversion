@@ -242,9 +242,11 @@ static void CSC_YCC_to_RGB_brute_force_int( int row, int col) {
 } // END of CSC_YCC_to_RGB_brute_force_int()
 
 static void CSC_YCC_to_RGB_vector(int row, int col) {
-  
-  const int shift = 6; // same scaling as integer path
 
+  // Somehow this 6 makes the image brighter
+  const int shift = 6;
+
+  // Save YCC data from arrays to local variables
   int16_t Y_data[4] = {
       (int16_t)Y[row][col],
       (int16_t)Y[row][col + 1],
@@ -264,7 +266,7 @@ static void CSC_YCC_to_RGB_vector(int row, int col) {
       (int16_t)Cr_temp[row + 1][col + 1]
   };
 
-  // NEON loads
+  // Create NEON vectors 
   int16x4_t Y_vec  = vld1_s16(Y_data);  
   int16x4_t Cb_vec = vld1_s16(Cb_data); 
   int16x4_t Cr_vec = vld1_s16(Cr_data);
@@ -295,13 +297,17 @@ static void CSC_YCC_to_RGB_vector(int row, int col) {
   R_pix = vaddq_s32(R_pix, round);
   G_pix = vaddq_s32(G_pix, round);
   B_pix = vaddq_s32(B_pix, round);
-
+  
   R_pix = vshrq_n_s32(R_pix, shift);
   G_pix = vshrq_n_s32(G_pix, shift);
   B_pix = vshrq_n_s32(B_pix, shift);
 
+  // Ensure values stay within 0-255
   int32x4_t zero32 = vdupq_n_s32(0);
   int32x4_t max32  = vdupq_n_s32(255);
+
+  // Take max of variable = (pix, 0)
+  // Take min of pix = (variable, 255)
   R_pix = vminq_s32(vmaxq_s32(R_pix, zero32), max32);
   G_pix = vminq_s32(vmaxq_s32(G_pix, zero32), max32);
   B_pix = vminq_s32(vmaxq_s32(B_pix, zero32), max32);
@@ -463,6 +469,14 @@ static void chrominance_array_upsample(int input_row, int input_col) {
 } // END of chrominance_array_upsample()
 
 
+static void CSC_YCC_to_RGB_unrolled_int(int row, int col) {
+  // Process a 4x4 block of pixels by unrolling the inner loop.
+  CSC_YCC_to_RGB_brute_force_int(row, col);
+  CSC_YCC_to_RGB_brute_force_int(row, col + 2);
+  CSC_YCC_to_RGB_brute_force_int(row + 2, col);
+  CSC_YCC_to_RGB_brute_force_int(row + 2, col + 2);
+} // END of CSC_RGB_to_YCC_unrolled_int()
+
 // =======
 void CSC_YCC_to_RGB(int input_row, int input_col) {
   int row, col; // indices for row and column
@@ -471,10 +485,11 @@ void CSC_YCC_to_RGB(int input_row, int input_col) {
   IMG_W = input_col;
   chrominance_array_upsample(input_row, input_col);
 
-  for(row = 0; row < input_row-1; row+=2) {
+  for(row = 0; row< input_row-1; row+=2) {
     for(col = 0; col < input_col-1; col += 2) {
-  // for(row = 0; row < input_row; row+=2) {
-  //   for(col = 0; col < input_col; col += 2) {
+
+  // // for(row = 0; row < input_row; row+=4) {  
+  // //   for(col = 0; col < input_col; col += 4) {
       switch (YCC_to_RGB_ROUTINE) {
         case 0:
           break;
@@ -485,6 +500,9 @@ void CSC_YCC_to_RGB(int input_row, int input_col) {
           CSC_YCC_to_RGB_brute_force_int( row, col);
           break;
         case 3:
+          CSC_YCC_to_RGB_unrolled_int(row, col);
+          break;
+        case 4:
           CSC_YCC_to_RGB_vector( row, col);
           break;
         default:
@@ -492,5 +510,6 @@ void CSC_YCC_to_RGB(int input_row, int input_col) {
       }
     }
   }
+  
 } // END of CSC_YCC_to_RGB()
 

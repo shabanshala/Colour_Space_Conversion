@@ -2,9 +2,12 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-#define IMAGE_WIDTH 1024
-#define IMAGE_HEIGHT 768
-#define FILENAME "./image_input_RGB_768_1024_03.data" 
+// #define IMAGE_WIDTH 1024
+// #define IMAGE_HEIGHT 768
+// #define IMAGE_HEIGHT 1024
+#define IMAGE_WIDTH 64
+#define IMAGE_HEIGHT 64
+#define FILENAME "./image_input_RGB_64_64_03.data" 
 
 int main() {
     FILE *f_out = fopen(FILENAME, "wb");
@@ -20,9 +23,9 @@ int main() {
             uint8_t r, g, b;
 
     
-            r = (uint8_t)((float)x / (IMAGE_WIDTH - 1) * 255);
-            g = (uint8_t)((float)y / (IMAGE_HEIGHT - 1) * 255);
-            b = (uint8_t)(((float)x / (IMAGE_WIDTH - 1) + (float)y / (IMAGE_HEIGHT - 1)) / 2.0 * 255);
+            g = (uint8_t)((float)x / (IMAGE_WIDTH - 1) * 255);
+            b = (uint8_t)((float)y / (IMAGE_HEIGHT - 1) * 255);
+            r = (uint8_t)(((float)x / (IMAGE_WIDTH - 1) + (float)y / (IMAGE_HEIGHT - 1)) / 2.0 * 255);
 
             fputc(r, f_out);
             fputc(g, f_out);

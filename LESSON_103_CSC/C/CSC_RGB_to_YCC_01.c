@@ -237,14 +237,10 @@ static void CSC_RGB_to_YCC_unrolled_int(int row, int col) {
 } // END of CSC_RGB_to_YCC_unrolled_int()
 
 // static void CSC_RGB_to_YCC_vector(int col, int row) {
-static void CSC_RGB_to_YCC_vector(int row, int col, int image_height, int image_width) {
+static void CSC_RGB_to_YCC_vector(int row, int col) {
   // printf("computing 2x2 square from height %d, width %d\n", row, col);
 
-  int r0 = row;
-  int r1 = (row + 1 < image_height) ? row + 1 : row;
-  int c0 = col;
-  int c1 = (col + 1 < image_width) ? col + 1 : col;
-
+  // Grab RGB values from arrays
   int16_t R_data[4] = {
     (int16_t)R[row][col],
     (int16_t)R[row][col+1],
@@ -269,7 +265,7 @@ static void CSC_RGB_to_YCC_vector(int row, int col, int image_height, int image_
   int16x4_t G_vec = vld1_s16(G_data);
   int16x4_t B_vec = vld1_s16(B_data);
 
-  int32x4_t Y_R = vmull_n_s16(R_vec, C11); // C11 * R (widened)
+  int32x4_t Y_R = vmull_n_s16(R_vec, C11); // C11 * R
   int32x4_t Y_G = vmull_n_s16(G_vec, C12); // C12 * G
   int32x4_t Y_B = vmull_n_s16(B_vec, C13); // C13 * B
 
@@ -331,7 +327,6 @@ static void CSC_RGB_to_YCC_vector(int row, int col, int image_height, int image_
   int32x4_t Cr_shifted = vshrq_n_s32(Cr_sum, K);        // >> K
   int16x4_t Cr_pixels = vmovn_s32(Cr_shifted);
 
-
   //Cr DOWNSAMPLING
   //Pulling each pixel from Cr_pixels vector
   int cr0 = (int)vget_lane_s16(Cr_pixels, 0);
@@ -358,14 +353,13 @@ void CSC_RGB_to_YCC(int input_col, int input_row) {
   //   for( col=0; col<input_col; col+=2) { 
 
   //UNCOMMENT FOR VECTOR OPS
-  for(row = 0; row < input_row-1; row += 2) {
-    for(col = 0; col < input_col-1; col += 2) {
-      
+  for(row = 0; row< input_row-1; row += 2) {
+    for(col = 0; col< input_col-1; col += 2) {
      
-  //UNCOMMENT FOR UNROLLED VERSION    
-  // for(row = 0; row<input_row; row +=4) {
-  //   for(col = 0; col<input_col; col += 4) {
-      //printf( "\n[row,col] = [%02i,%02i]\n\n", row, col);
+  // //UNCOMMENT FOR UNROLLED VERSION    
+  // // for(row = 0; row<input_row; row +=4) {
+  // //   for(col = 0; col<input_col; col += 4) {
+  //     //printf( "\n[row,col] = [%02i,%02i]\n\n", row, col);
       switch (RGB_to_YCC_ROUTINE) {
         case 0:
           break;
@@ -379,19 +373,20 @@ void CSC_RGB_to_YCC(int input_col, int input_row) {
           CSC_RGB_to_YCC_unrolled_int(row, col);
           break;
         case 4:
-          CSC_RGB_to_YCC_vector(row, col, input_row, input_col);
+          CSC_RGB_to_YCC_vector(row, col);
           // CSC_RGB_to_YCC_vector(col, row);
           break;
         default:
           break;
       }
-
-
-//      printf( "Luma_00  = %02hhx\n", Y[row+0][col+0]);
-//      printf( "Luma_01  = %02hhx\n", Y[row+0][col+1]);
-//      printf( "Luma_10  = %02hhx\n", Y[row+1][col+0]);
-//      printf( "Luma_11  = %02hhx\n\n", Y[row+1][col+1]);
     }
   }
+
+    //  printf( "Luma_00  = %02hhx\n", Y[row+0][col+0]);
+    //  printf( "Luma_01  = %02hhx\n", Y[row+0][col+1]);
+    //  printf( "Luma_10  = %02hhx\n", Y[row+1][col+0]);
+    //  printf( "Luma_11  = %02hhx\n\n", Y[row+1][col+1]);
+    // }
+  // }
 
 } // END of CSC_RGB_to_YCC()

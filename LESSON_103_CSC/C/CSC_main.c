@@ -56,16 +56,23 @@ void free_2d_array(uint8_t** array, int rows) {
 }
 
 // Corrected array initializers: using 'const char *' and adding semicolons.
-const char *input_files_RGB[3] = {
+const char *input_files_RGB[5] = {
     "./image_input_RGB_64_48_03.data",
+    "./image_input_RGB_64_64_03.data",
     "./image_input_RGB_640_480_02.data",
-    "./image_input_RGB_768_1024_03.data"
+    "./image_input_RGB_768_1024_03.data",
+    "./image_input_RGB_1024_1024_03.data"
 };
 
-const char *input_files_echo[3][3] = {
+const char *input_files_echo[5][3] = {
     {"./image_echo_R_64_48_03.data",
     "./image_echo_G_64_48_03.data",
     "./image_echo_B_64_48_03.data"},
+    {
+    "./image_echo_R_64_64_03.data",
+    "./image_echo_G_64_64_03.data",
+    "./image_echo_B_64_64_03.data"
+    },
 
     {"./image_echo_R_640_480_02.data",
     "./image_echo_G_640_480_02.data",
@@ -73,14 +80,23 @@ const char *input_files_echo[3][3] = {
 
     {"./image_echo_R_768_1024_03.data",
     "./image_echo_G_768_1024_03.data",
-    "./image_echo_B_768_1024_03.data"}
+    "./image_echo_B_768_1024_03.data"},
+
+    {"./image_echo_R_1024_1024_03.data",
+    "./image_echo_G_1024_1024_03.data",
+    "./image_echo_B_1024_1024_03.data"}
 };
 
-const char *output_files_YCC[3][3] = {
+const char *output_files_YCC[5][3] = {
  {
     "./image_output_Y_64_48_03.data",
     "./image_output_Cb_64_48_03.data",
     "./image_output_Cr_64_48_03.data"
+ },
+ {
+    "./image_output_Y_64_64_03.data",
+    "./image_output_Cb_64_64_03.data",
+    "./image_output_Cr_64_64_03.data",
  },
  {
     "./image_output_Y_640_480_02.data",
@@ -91,19 +107,28 @@ const char *output_files_YCC[3][3] = {
     "./image_output_Y_768_1024_03.data",
     "./image_output_Cb_768_1024_03.data",
     "./image_output_Cr_768_1024_03.data"
+ },
+ {
+    "./image_output_Y_1024_1024_03.data",
+    "./image_output_Cb_1024_1024_03.data",
+    "./image_output_Cr_1024_1024_03.data"
  }
 };
 
-const char *output_files_RGB[3] = {
+const char *output_files_RGB[5] = {
  "./image_output_RGB_64_48_03.data",
+ "./image_output_RGB_64_64_03.data",
  "./image_output_RGB_640_480_02.data",
- "./image_output_RGB_768_1024_03.data"
+ "./image_output_RGB_768_1024_03.data",
+ "./image_output_RGB_1024_1024_03.data"
 };
 
-int image_sizes[3][2] = {
+int image_sizes[5][2] = {
     {64, 48},
+    {64, 64},
     {640, 480},
-    {768, 1024}
+    {768, 1024},
+    {1024, 1024}
     
     
 };
@@ -119,14 +144,14 @@ int main(void) {
     FILE *f_ID_output_Cr;
     FILE *f_ID_output_RGB;
 
-    for(int i = 0; i < 3; i++) {
+    for(int i = 0; i < 5; i++) {
         clock_t start_time, end_time;
         double elapsed_time;
 
         start_time = clock(); // Start the timer
 
-        int current_row_size = image_sizes[i][1];
-        int current_col_size = image_sizes[i][0];
+        int current_row_size = image_sizes[i][0];
+        int current_col_size = image_sizes[i][1];
         const char* RGB_filename = input_files_RGB[i];
         // printf("Starting RGB->YCC->RGB conversion for file: %s\n", RGB_filename);
 
@@ -233,16 +258,40 @@ int main(void) {
         // printf("opened echo files: \n%s\n%s\n%s\n", input_files_echo[i][0],input_files_echo[i][1], input_files_echo[i][2]);
 
         // printf("Reading input RGB image and echoing components...\n");
-        for( row=0; row < current_row_size; row++) {
-            for( col=0; col < current_col_size; col++) {
-                R[row][col] = (uint8_t)( fgetc( f_ID_input_RGB));
-                fputc( R[row][col], f_ID_echo_R);
-                G[row][col] = (uint8_t)( fgetc( f_ID_input_RGB));
-                fputc( G[row][col], f_ID_echo_G);
-                B[row][col] = (uint8_t)( fgetc( f_ID_input_RGB));
-                fputc( B[row][col], f_ID_echo_B);
+        // for( row=0; row < current_row_size; row++) {
+        //     for( col=0; col < current_col_size; col++) {
+        //         R[row][col] = (uint8_t)( fgetc( f_ID_input_RGB));
+        //         fputc( R[row][col], f_ID_echo_R);
+        //         G[row][col] = (uint8_t)( fgetc( f_ID_input_RGB));
+        //         fputc( G[row][col], f_ID_echo_G);
+        //         B[row][col] = (uint8_t)( fgetc( f_ID_input_RGB));
+        //         fputc( B[row][col], f_ID_echo_B);
+        //     }
+        // }
+        for (row = 0; row < current_row_size; row++) {
+            for (col = 0; col < current_col_size; col++) {
+                int r_val = fgetc(f_ID_input_RGB);
+                int g_val = fgetc(f_ID_input_RGB);
+                int b_val = fgetc(f_ID_input_RGB);
+
+                if (r_val == EOF || g_val == EOF || b_val == EOF) {
+                    fprintf(stderr, "Unexpected EOF while reading RGB data at row %d, col %d\n", row, col);
+                    exit(1);
+                }
+
+                R[row][col] = (uint8_t)r_val;
+                G[row][col] = (uint8_t)g_val;
+                B[row][col] = (uint8_t)b_val;
+
+                fputc(R[row][col], f_ID_echo_R);
+                fputc(G[row][col], f_ID_echo_G);
+                fputc(B[row][col], f_ID_echo_B);
             }
         }
+       
+
+
+
         fclose( f_ID_echo_B);
         fclose( f_ID_echo_G);
         fclose( f_ID_echo_R);
@@ -268,7 +317,7 @@ int main(void) {
             free_2d_array(Cr_temp, current_row_size);
             return( 1);
         }
-        printf("current height size: %d, current width size: %d\n", current_row_size, current_col_size);
+        // printf("current height size: %d, current width size: %d\n", current_row_size, current_col_size);
 
         f_ID_output_Cb = fopen( output_files_YCC[i][1], "wb");
         if( f_ID_output_Cb == NULL) {
@@ -304,7 +353,7 @@ int main(void) {
         }
 
         // printf("Writing Y component to file...\n");
-        printf("height is %d, width is %d\n", current_row_size, current_col_size);
+        // printf("height is %d, width is %d\n", current_row_size, current_col_size);
         for( row=0; row < current_row_size; row++) {
             for( col=0; col < current_col_size; col++) {
                 fputc( Y[row][col], f_ID_output_Y);
