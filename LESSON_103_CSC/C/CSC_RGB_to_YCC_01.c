@@ -18,13 +18,13 @@ extern uint8_t **Cb_temp;
 extern uint8_t **Cr_temp;
 // private prototypes
 // =======
-static void CSC_RGB_to_YCC_brute_force_float( int row, int col);
-static void CSC_RGB_to_YCC_unrolled_int(int row, int col);
-static void CSC_RGB_to_YCC_vector_ops(int row, int col);
+static void csc_rgb_to_ycc_brute_force_float( int row, int col);
+static void csc_rgb_to_ycc_unrolled_int( int row, int col);
+static void csc_rgb_to_ycc_vector( int row, int col);
 
 // =======
-static void CSC_RGB_to_YCC_brute_force_int( int row, int col);
-uint8_t saturation_int(int argument);
+static void csc_rgb_to_ycc_brute_force_int( int row, int col);
+uint8_t saturation_int( int argument);
 
 // =======
 static uint8_t chrominance_downsample(
@@ -33,7 +33,7 @@ static uint8_t chrominance_downsample(
 
 // private definitions
 // =======
-static void CSC_RGB_to_YCC_brute_force_float( int row, int col) {
+static void csc_rgb_to_ycc_brute_force_float( int row, int col) {
 //
   uint8_t Cb_pixel_00, Cb_pixel_01;
   uint8_t Cb_pixel_10, Cb_pixel_11;
@@ -91,7 +91,7 @@ static void CSC_RGB_to_YCC_brute_force_float( int row, int col) {
 } // END of CSC_RGB_to_YCC_brute_force_float()
 
 // =======
-static void CSC_RGB_to_YCC_brute_force_int( int row, int col) {
+static void csc_rgb_to_ycc_brute_force_int( int row, int col) {
 //
   int R_pixel_00, R_pixel_01, R_pixel_10, R_pixel_11;
   int G_pixel_00, G_pixel_01, G_pixel_10, G_pixel_11;
@@ -228,16 +228,16 @@ static uint8_t chrominance_downsample(
 } // END of chrominance_downsample()
 
 
-static void CSC_RGB_to_YCC_unrolled_int(int row, int col) {
-  // Process a 4x4 block of pixels by unrolling the inner loop.
-  CSC_RGB_to_YCC_brute_force_int(row, col);
-  CSC_RGB_to_YCC_brute_force_int(row, col + 2);
-  CSC_RGB_to_YCC_brute_force_int(row + 2, col);
-  CSC_RGB_to_YCC_brute_force_int(row + 2, col + 2);
+static void csc_rgb_to_ycc_unrolled_int(int row, int col) {
+  // Process a 4x4 block of pixels by unrolling the loop.
+  csc_rgb_to_ycc_brute_force_int(row, col);
+  csc_rgb_to_ycc_brute_force_int(row, col + 2);
+  csc_rgb_to_ycc_brute_force_int(row + 2, col);
+  csc_rgb_to_ycc_brute_force_int(row + 2, col + 2);
 } // END of CSC_RGB_to_YCC_unrolled_int()
 
 // static void CSC_RGB_to_YCC_vector(int col, int row) {
-static void CSC_RGB_to_YCC_vector(int row, int col) {
+static void csc_rgb_to_ycc_vector(int row, int col) {
   // printf("computing 2x2 square from height %d, width %d\n", row, col);
 
   // Grab RGB values from arrays
@@ -344,7 +344,8 @@ static void CSC_RGB_to_YCC_vector(int row, int col) {
 }
 
 // =======
-void CSC_RGB_to_YCC(int input_col, int input_row) {
+void csc_rgb_to_ycc(int input_col, int input_row) {
+// void CSC_RGB_to_YCC(const uint8_t *R_in, const uint8_t *G_in, const uint8_t *B_in, uint8_t *Y_out, uint8_t *Cb_out, uint8_t *Cr_out, int input_col, int input_row) {
 
   int row, col; // indices for row and column
 //
@@ -364,17 +365,19 @@ void CSC_RGB_to_YCC(int input_col, int input_row) {
         case 0:
           break;
         case 1:
-          CSC_RGB_to_YCC_brute_force_float( row, col);
+          csc_rgb_to_ycc_brute_force_float( row, col);
           break;
         case 2:
-          CSC_RGB_to_YCC_brute_force_int( row, col);
+          csc_rgb_to_ycc_brute_force_int( row, col);
           break;
         case 3:
-          CSC_RGB_to_YCC_unrolled_int(row, col);
+          csc_rgb_to_ycc_unrolled_int(row, col);
           break;
         case 4:
-          CSC_RGB_to_YCC_vector(row, col);
-          // CSC_RGB_to_YCC_vector(col, row);
+            csc_rgb_to_ycc_vector(row, col);
+
+            break;
+       
           break;
         default:
           break;
@@ -390,3 +393,7 @@ void CSC_RGB_to_YCC(int input_col, int input_row) {
   // }
 
 } // END of CSC_RGB_to_YCC()
+
+
+
+

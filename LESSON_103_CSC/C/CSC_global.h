@@ -71,8 +71,8 @@ extern uint8_t **Cr_temp;
 // void CSC_RGB_to_YCC(void);
 // void CSC_YCC_to_RGB(void);
 
-void CSC_RGB_to_YCC(int input_col, int input_row);
-void CSC_YCC_to_RGB(int input_col, int input_row);
+void csc_rgb_to_ycc(int input_col, int input_row);
+void csc_ycc_to_rgb(int input_col, int input_row);
 
 #endif // CSC_GLOBAL_H
 

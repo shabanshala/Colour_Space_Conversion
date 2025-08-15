@@ -299,7 +299,8 @@ int main(void) {
         // printf("Finished reading input RGB and echoing components.\n");
         
 
-        CSC_RGB_to_YCC(current_col_size, current_row_size);
+        // CSC_RGB_to_YCC(current_col_size, current_row_size);
+        csc_rgb_to_ycc(current_col_size, current_row_size);
 
         // printf("writing to ycc output files: \n%s\n%s\n%s\n", output_files_YCC[i][0], output_files_YCC[i][1], output_files_YCC[i][2]);
 
@@ -374,8 +375,8 @@ int main(void) {
         fclose( f_ID_output_Cb);
         // printf("Writing Cb and Cr components complete.\n");
 
-        CSC_YCC_to_RGB(current_row_size, current_col_size);
-
+        // CSC_YCC_to_RGB(current_row_size, current_col_size);
+        csc_ycc_to_rgb(current_row_size, current_col_size);
 
         f_ID_output_RGB = fopen( output_files_RGB[i], "wb");
         if( f_ID_output_RGB == NULL) {
@@ -421,3 +422,5 @@ int main(void) {
 
     return 0;
 }
+
+

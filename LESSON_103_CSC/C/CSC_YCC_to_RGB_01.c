@@ -10,14 +10,16 @@
 // private prototypes
 // =======
 static uint8_t saturation_float( float argument);
-static void CSC_YCC_to_RGB_brute_force_float( int row, int col);
-static void CSC_YCC_to_RGB_vector(int row, int col);
+static void csc_ycc_to_rgb_brute_force_float( int row, int col);
+static void csc_ycc_to_rgb_vector( int row, int col);
+// CSC_YCC_to_RGB_vector(const uint8_t *Y_in, const uint8_t *Cb_in, const uint8_t *Cr_in, uint8_t *R_out, uint8_t *G_out, uint8_t *B_out, int input_row, int input_col);
+
 static int IMG_H = 0;
 static int IMG_W = 0;
 
 // =======
 static uint8_t saturation_int( int argument);
-static void CSC_YCC_to_RGB_brute_force_int( int row, int col);
+static void csc_ycc_to_rgb_brute_force_int( int row, int col);
 
 // =======
 static void chrominance_upsample(
@@ -25,7 +27,7 @@ static void chrominance_upsample(
     uint8_t C_pixel_10, uint8_t C_pixel_11,
     uint8_t *top, uint8_t *left, uint8_t *middle);
 // =======
-static void chrominance_array_upsample(int input_row, int input_col);
+static void chrominance_array_upsample( int input_row, int input_col);
 
 
 
@@ -44,7 +46,7 @@ static uint8_t saturation_float( float argument) {
 } // END of saturation_float()
 
 // =======
-static void CSC_YCC_to_RGB_brute_force_float( int row, int col) {
+static void csc_ycc_to_rgb_brute_force_float( int row, int col) {
 //
   float R_pixel_00, R_pixel_01, R_pixel_10, R_pixel_11;
   float G_pixel_00, G_pixel_01, G_pixel_10, G_pixel_11;
@@ -118,7 +120,7 @@ static uint8_t saturation_int( int argument) {
 
 
 // =======
-static void CSC_YCC_to_RGB_brute_force_int( int row, int col) {
+static void csc_ycc_to_rgb_brute_force_int( int row, int col) {
 //
   int R_pixel_00, R_pixel_01, R_pixel_10, R_pixel_11;
   int G_pixel_00, G_pixel_01, G_pixel_10, G_pixel_11;
@@ -241,7 +243,7 @@ static void CSC_YCC_to_RGB_brute_force_int( int row, int col) {
 
 } // END of CSC_YCC_to_RGB_brute_force_int()
 
-static void CSC_YCC_to_RGB_vector(int row, int col) {
+static void csc_ycc_to_rgb_vector(int row, int col) {
 
   // Somehow this 6 makes the image brighter
   const int shift = 6;
@@ -469,16 +471,17 @@ static void chrominance_array_upsample(int input_row, int input_col) {
 } // END of chrominance_array_upsample()
 
 
-static void CSC_YCC_to_RGB_unrolled_int(int row, int col) {
-  // Process a 4x4 block of pixels by unrolling the inner loop.
-  CSC_YCC_to_RGB_brute_force_int(row, col);
-  CSC_YCC_to_RGB_brute_force_int(row, col + 2);
-  CSC_YCC_to_RGB_brute_force_int(row + 2, col);
-  CSC_YCC_to_RGB_brute_force_int(row + 2, col + 2);
+static void csc_ycc_to_rgb_unrolled_int(int row, int col) {
+  // Process a 4x4 block of pixels
+  // Each call to brute force processes a 2x2 block
+  csc_ycc_to_rgb_brute_force_int(row, col);
+  csc_ycc_to_rgb_brute_force_int(row, col + 2);
+  csc_ycc_to_rgb_brute_force_int(row + 2, col);
+  csc_ycc_to_rgb_brute_force_int(row + 2, col + 2);
 } // END of CSC_RGB_to_YCC_unrolled_int()
 
 // =======
-void CSC_YCC_to_RGB(int input_row, int input_col) {
+void csc_ycc_to_rgb(int input_row, int input_col) {
   int row, col; // indices for row and column
 
   IMG_H = input_row;
@@ -494,16 +497,18 @@ void CSC_YCC_to_RGB(int input_row, int input_col) {
         case 0:
           break;
         case 1:
-          CSC_YCC_to_RGB_brute_force_float( row, col);
+          csc_ycc_to_rgb_brute_force_float( row, col);
           break;
         case 2:
-          CSC_YCC_to_RGB_brute_force_int( row, col);
+          csc_ycc_to_rgb_brute_force_int( row, col);
           break;
         case 3:
-          CSC_YCC_to_RGB_unrolled_int(row, col);
+          csc_ycc_to_rgb_unrolled_int(row, col);
           break;
         case 4:
-          CSC_YCC_to_RGB_vector( row, col);
+          csc_ycc_to_rgb_vector( row, col);
+          // CSC_YCC_to_RGB_vector(const uint8_t *Y_in, const uint8_t *Cb_in, const uint8_t *Cr_in, uint8_t *R_out, uint8_t *G_out, uint8_t *B_out, int input_row, int input_col);
+
           break;
         default:
           break;
@@ -512,4 +517,7 @@ void CSC_YCC_to_RGB(int input_row, int input_col) {
   }
   
 } // END of CSC_YCC_to_RGB()
+
+
+
 
