@@ -12,10 +12,14 @@
 static uint8_t saturation_float( float argument);
 static void csc_ycc_to_rgb_brute_force_float( int row, int col);
 static void csc_ycc_to_rgb_vector( int row, int col);
-// CSC_YCC_to_RGB_vector(const uint8_t *Y_in, const uint8_t *Cb_in, const uint8_t *Cr_in, uint8_t *R_out, uint8_t *G_out, uint8_t *B_out, int input_row, int input_col);
+void ycc_to_rgb_fixed_point_rounded_saturated(
+    uint8_t *_img_buffer_in_y,
+    uint8_t *_img_buffer_in_cb,
+    uint8_t *_img_buffer_in_cr,
+    uint8_t *_img_buffer_out_rgb,
+    int _length);
 
-static int IMG_H = 0;
-static int IMG_W = 0;
+static void YCC_to_RGB_fixed_point_rounded_saturated_rowcol(int row, int col);
 
 // =======
 static uint8_t saturation_int( int argument);
@@ -28,8 +32,6 @@ static void chrominance_upsample(
     uint8_t *top, uint8_t *left, uint8_t *middle);
 // =======
 static void chrominance_array_upsample( int input_row, int input_col);
-
-
 
 // private definitions
 // =======
@@ -44,6 +46,69 @@ static uint8_t saturation_float( float argument) {
     return( (uint8_t)argument);
   }
 } // END of saturation_float()
+
+//convert 2 x 2 block of YCC to RGB using fixed-point arithmetic
+static void ycc_to_rgb_fixed_point_rounded_saturated_rowcol(int row, int col) {
+    uint8_t y4[4], cb4[4], cr4[4];
+    int idx = 0;
+
+    //get 2 x 2 tile
+    for (int r = 0; r < 2; ++r) {
+        for (int c = 0; c < 2; ++c) {
+            int rr = row + r, cc = col + c;
+            y4[idx]  = Y[rr][cc];
+            cb4[idx] = Cb_temp[rr][cc];
+            cr4[idx] = Cr_temp[rr][cc];
+            idx++;
+        }
+    }
+
+    //convert 4 YCC pixels to 4 RGB pixels
+    uint8_t rgb4[12];
+    ycc_to_rgb_fixed_point_rounded_saturated(y4, cb4, cr4, rgb4, 4);
+
+    idx = 0;
+    for (int r = 0; r < 2; ++r) {
+        for (int c = 0; c < 2; ++c) {
+            int rr = row + r, cc = col + c;
+            R[rr][cc] = rgb4[3*idx + 0];
+            G[rr][cc] = rgb4[3*idx + 1];
+            B[rr][cc] = rgb4[3*idx + 2];
+            idx++;
+        }
+    }
+} //END of ycc_to_rgb_fixed_point_rounded_saturated_rowcol()
+
+void ycc_to_rgb_fixed_point_rounded_saturated(uint8_t *_img_buffer_in_y, uint8_t *_img_buffer_in_cb, uint8_t *_img_buffer_in_cr, uint8_t *_img_buffer_out_rgb, int _length) {
+    
+    //256 * conversion coefficients
+    #define Y_TO_RGB_COEFF      298 
+    #define CR_TO_R_COEFF       409  
+    #define CB_TO_B_COEFF       517 
+    #define CB_TO_G_COEFF       -100 
+    #define CR_TO_G_COEFF       -208
+
+    for (int i = 0; i < _length; ++i) {
+        //load inputs
+        int32_t y = _img_buffer_in_y[i];
+        int32_t cb = _img_buffer_in_cb[i];
+        int32_t cr = _img_buffer_in_cr[i];
+        
+        //remove offsets
+        int32_t y_shifted = y - 16;
+        int32_t cb_shifted = cb - 128;
+        int32_t cr_shifted = cr - 128;
+        
+        //fixed-point reconstruction with rounding and >> 8
+        int32_t temp_r = (Y_TO_RGB_COEFF * y_shifted + CR_TO_R_COEFF * cr_shifted + 128) >> 8;
+        int32_t temp_g = (Y_TO_RGB_COEFF * y_shifted + CB_TO_G_COEFF * cb_shifted + CR_TO_G_COEFF * cr_shifted + 128) >> 8;
+        int32_t temp_b = (Y_TO_RGB_COEFF * y_shifted + CB_TO_B_COEFF * cb_shifted + 128) >> 8;
+
+        _img_buffer_out_rgb[3 * i] = saturation_int(temp_r);
+        _img_buffer_out_rgb[3 * i + 1] = saturation_int(temp_g);
+        _img_buffer_out_rgb[3 * i + 2] = saturation_int(temp_b);
+    }
+} //END of ycc_to_rgb_fixed_point_rounded_saturated()
 
 // =======
 static void csc_ycc_to_rgb_brute_force_float( int row, int col) {
@@ -118,7 +183,6 @@ static uint8_t saturation_int( int argument) {
   }
 } // END of saturation_int()
 
-
 // =======
 static void csc_ycc_to_rgb_brute_force_int( int row, int col) {
 //
@@ -178,10 +242,6 @@ static void csc_ycc_to_rgb_brute_force_int( int row, int col) {
 
 
   //Handle overflow with saturating arithmetic
-  // R[row+0][col+0] = saturation_int(R_pixel_00);
-  // R[row+0][col+1] = saturation_int(R_pixel_01);
-  // R[row+1][col+0] = saturation_int(R_pixel_10);
-  // R[row+1][col+1] = saturation_int(R_pixel_11);
   R[row+0][col+0] = (uint8_t)R_pixel_00;
   R[row+0][col+1] = (uint8_t)R_pixel_01;
   R[row+1][col+0] = (uint8_t)R_pixel_10;
@@ -207,10 +267,6 @@ static void csc_ycc_to_rgb_brute_force_int( int row, int col) {
   G_pixel_11 += (1 << (K-1)); // rounding
   G_pixel_11 = G_pixel_11 >> K;
 
-  // G[row+0][col+0] = saturation_int(G_pixel_00);
-  // G[row+0][col+1] = saturation_int(G_pixel_01);
-  // G[row+1][col+0] = saturation_int(G_pixel_10);
-  // G[row+1][col+1] = saturation_int(G_pixel_11);
   G[row+0][col+0] = (uint8_t)G_pixel_00;
   G[row+0][col+1] = (uint8_t)G_pixel_01;
   G[row+1][col+0] = (uint8_t)G_pixel_10;
@@ -232,10 +288,6 @@ static void csc_ycc_to_rgb_brute_force_int( int row, int col) {
   B_pixel_11 += (1 << (K-1)); // rounding
   B_pixel_11 = B_pixel_11 >> K;
 
-  // B[row+0][col+0] = saturation_int(B_pixel_00);
-  // B[row+0][col+1] = saturation_int(B_pixel_01);
-  // B[row+1][col+0] = saturation_int(B_pixel_10);
-  // B[row+1][col+1] = saturation_int(B_pixel_11);
   B[row+0][col+0] = (uint8_t)B_pixel_00;
   B[row+0][col+1] = (uint8_t)B_pixel_01;
   B[row+1][col+0] = (uint8_t)B_pixel_10;
@@ -244,7 +296,6 @@ static void csc_ycc_to_rgb_brute_force_int( int row, int col) {
 } // END of CSC_YCC_to_RGB_brute_force_int()
 
 static void csc_ycc_to_rgb_vector(int row, int col) {
-
   // Somehow this 6 makes the image brighter
   const int shift = 6;
 
@@ -314,7 +365,7 @@ static void csc_ycc_to_rgb_vector(int row, int col) {
   G_pix = vminq_s32(vmaxq_s32(G_pix, zero32), max32);
   B_pix = vminq_s32(vmaxq_s32(B_pix, zero32), max32);
 
-  //Get pixels from vector
+  // Get pixels from vector
   int32_t r0 = vgetq_lane_s32(R_pix, 0);
   int32_t r1 = vgetq_lane_s32(R_pix, 1);
   int32_t r2 = vgetq_lane_s32(R_pix, 2);
@@ -347,8 +398,6 @@ static void csc_ycc_to_rgb_vector(int row, int col) {
   B[row + 1][col + 1] = (uint8_t)b3;
 
 }
-
-
 
 // =======
 static void chrominance_upsample(
@@ -474,25 +523,27 @@ static void chrominance_array_upsample(int input_row, int input_col) {
 static void csc_ycc_to_rgb_unrolled_int(int row, int col) {
   // Process a 4x4 block of pixels
   // Each call to brute force processes a 2x2 block
-  csc_ycc_to_rgb_brute_force_int(row, col);
-  csc_ycc_to_rgb_brute_force_int(row, col + 2);
-  csc_ycc_to_rgb_brute_force_int(row + 2, col);
-  csc_ycc_to_rgb_brute_force_int(row + 2, col + 2);
+  ycc_to_rgb_fixed_point_rounded_saturated_rowcol(row, col);
+  ycc_to_rgb_fixed_point_rounded_saturated_rowcol(row, col + 2);
+  ycc_to_rgb_fixed_point_rounded_saturated_rowcol(row + 2, col);
+  ycc_to_rgb_fixed_point_rounded_saturated_rowcol(row + 2, col + 2);
 } // END of CSC_RGB_to_YCC_unrolled_int()
 
 // =======
 void csc_ycc_to_rgb(int input_row, int input_col) {
   int row, col; // indices for row and column
-
-  IMG_H = input_row;
-  IMG_W = input_col;
   chrominance_array_upsample(input_row, input_col);
+  int increment;
+  if(YCC_to_RGB_ROUTINE == 3) {
+    increment = 4; // unrolled version processes 4x4 blocks
+  }
+  else {
+    increment = 2; // other versions process 2x2 blocks
+  }
 
-  for(row = 0; row< input_row-1; row+=2) {
-    for(col = 0; col < input_col-1; col += 2) {
+  for(row = 0; row < input_row-1; row += increment) {
+    for(col = 0; col < input_col-1; col += increment) {
 
-  // // for(row = 0; row < input_row; row+=4) {  
-  // //   for(col = 0; col < input_col; col += 4) {
       switch (YCC_to_RGB_ROUTINE) {
         case 0:
           break;
@@ -507,15 +558,15 @@ void csc_ycc_to_rgb(int input_row, int input_col) {
           break;
         case 4:
           csc_ycc_to_rgb_vector( row, col);
-          // CSC_YCC_to_RGB_vector(const uint8_t *Y_in, const uint8_t *Cb_in, const uint8_t *Cr_in, uint8_t *R_out, uint8_t *G_out, uint8_t *B_out, int input_row, int input_col);
-
+          break;
+        case 5:
+          ycc_to_rgb_fixed_point_rounded_saturated_rowcol(row, col);
           break;
         default:
           break;
       }
     }
   }
-  
 } // END of CSC_YCC_to_RGB()
 
 

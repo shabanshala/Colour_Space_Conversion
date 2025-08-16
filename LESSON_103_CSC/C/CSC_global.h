@@ -11,6 +11,9 @@
 // 0: No conversion
 // 1: Floating-point (brute force)
 // 2: Fixed-point integer (brute force)
+// 3: Unrolling
+// 4: Vector
+// 5: Baseline fixed-point 
 #define RGB_to_YCC_ROUTINE 4
 #define YCC_to_RGB_ROUTINE 4
 
@@ -48,14 +51,6 @@
 
 // Global image data arrays - Declared as extern
 // These are *declarations*, indicating that the variables are defined elsewhere.
-// extern uint8_t R[IMAGE_ROW_SIZE][IMAGE_COL_SIZE];
-// extern uint8_t G[IMAGE_ROW_SIZE][IMAGE_COL_SIZE];
-// extern uint8_t B[IMAGE_ROW_SIZE][IMAGE_COL_SIZE];
-// extern uint8_t Y[IMAGE_ROW_SIZE][IMAGE_COL_SIZE];
-// extern uint8_t Cb[IMAGE_ROW_SIZE / 2][IMAGE_COL_SIZE / 2];
-// extern uint8_t Cr[IMAGE_ROW_SIZE / 2][IMAGE_COL_SIZE / 2];
-// extern uint8_t Cb_temp[IMAGE_ROW_SIZE][IMAGE_COL_SIZE];
-// extern uint8_t Cr_temp[IMAGE_ROW_SIZE][IMAGE_COL_SIZE];
 
 extern uint8_t **R;
 extern uint8_t **G;
@@ -68,9 +63,6 @@ extern uint8_t **Cr_temp;
 
 
 // Function prototypes for CSC routines (defined in CSC_RGB_to_YCC_01.c and CSC_YCC_to_RGB_01.c)
-// void CSC_RGB_to_YCC(void);
-// void CSC_YCC_to_RGB(void);
-
 void csc_rgb_to_ycc(int input_col, int input_row);
 void csc_ycc_to_rgb(int input_col, int input_row);
 

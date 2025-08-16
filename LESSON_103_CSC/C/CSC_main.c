@@ -1,18 +1,15 @@
 
-
 // Copyright 2023 Mihai SIMA (mihai.sima@ieee.org). All rights reserved.
 // Color Space Conversion (CSC) in fixed-point arithmetic
-// RGB to YCC conversion
+
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
-#include <time.h> // Include the time header for the clock() function
-#include <string.h> // Include the string header for the memset() function
-#include "CSC_global.h" // Include the global header
+#include <time.h> 
+#include <string.h> 
+#include "CSC_global.h" 
 
-// Define global image data arrays as pointers.
-// These are the *definitions*, allocating memory for the pointers.
 uint8_t **R;
 uint8_t **G;
 uint8_t **B;
@@ -54,15 +51,6 @@ void free_2d_array(uint8_t** array, int rows) {
     }
     free(array);
 }
-
-// Corrected array initializers: using 'const char *' and adding semicolons.
-const char *input_files_RGB[5] = {
-    "./image_input_RGB_64_48_03.data",
-    "./image_input_RGB_64_64_03.data",
-    "./image_input_RGB_640_480_02.data",
-    "./image_input_RGB_768_1024_03.data",
-    "./image_input_RGB_1024_1024_03.data"
-};
 
 const char *input_files_echo[5][3] = {
     {"./image_echo_R_64_48_03.data",
@@ -129,8 +117,14 @@ int image_sizes[5][2] = {
     {640, 480},
     {768, 1024},
     {1024, 1024}
-    
-    
+};
+
+const char *input_files_RGB[5] = {
+    "./image_input_RGB_64_48_03.data",
+    "./image_input_RGB_64_64_03.data",
+    "./image_input_RGB_640_480_02.data",
+    "./image_input_RGB_768_1024_03.data",
+    "./image_input_RGB_1024_1024_03.data"
 };
 
 int main(void) {
@@ -153,7 +147,7 @@ int main(void) {
         int current_row_size = image_sizes[i][0];
         int current_col_size = image_sizes[i][1];
         const char* RGB_filename = input_files_RGB[i];
-        // printf("Starting RGB->YCC->RGB conversion for file: %s\n", RGB_filename);
+        
 
         // Dynamically allocate memory for all arrays
         R = allocate_2d_array(current_row_size, current_col_size);
@@ -179,7 +173,6 @@ int main(void) {
             return 1;
         }
 
-      
         for (row = 0; row < current_row_size; row++) {
             memset(Y[row], 0, current_col_size);
             memset(Cb_temp[row], 0, current_col_size);
@@ -190,12 +183,9 @@ int main(void) {
             memset(Cr[row], 0, (current_col_size >> 1));
         }
        
-
-
         f_ID_input_RGB = fopen(RGB_filename, "rb");
         if( f_ID_input_RGB == NULL) {
             printf( "Error: Could not open input file %s\n", RGB_filename);
-            // Free all dynamically allocated memory before exiting
             free_2d_array(R, current_row_size);
             free_2d_array(G, current_row_size);
             free_2d_array(B, current_row_size);
@@ -255,19 +245,6 @@ int main(void) {
             return( 1);
         }
 
-        // printf("opened echo files: \n%s\n%s\n%s\n", input_files_echo[i][0],input_files_echo[i][1], input_files_echo[i][2]);
-
-        // printf("Reading input RGB image and echoing components...\n");
-        // for( row=0; row < current_row_size; row++) {
-        //     for( col=0; col < current_col_size; col++) {
-        //         R[row][col] = (uint8_t)( fgetc( f_ID_input_RGB));
-        //         fputc( R[row][col], f_ID_echo_R);
-        //         G[row][col] = (uint8_t)( fgetc( f_ID_input_RGB));
-        //         fputc( G[row][col], f_ID_echo_G);
-        //         B[row][col] = (uint8_t)( fgetc( f_ID_input_RGB));
-        //         fputc( B[row][col], f_ID_echo_B);
-        //     }
-        // }
         for (row = 0; row < current_row_size; row++) {
             for (col = 0; col < current_col_size; col++) {
                 int r_val = fgetc(f_ID_input_RGB);
@@ -289,20 +266,12 @@ int main(void) {
             }
         }
        
-
-
-
         fclose( f_ID_echo_B);
         fclose( f_ID_echo_G);
         fclose( f_ID_echo_R);
         fclose( f_ID_input_RGB);
-        // printf("Finished reading input RGB and echoing components.\n");
         
-
-        // CSC_RGB_to_YCC(current_col_size, current_row_size);
         csc_rgb_to_ycc(current_col_size, current_row_size);
-
-        // printf("writing to ycc output files: \n%s\n%s\n%s\n", output_files_YCC[i][0], output_files_YCC[i][1], output_files_YCC[i][2]);
 
         f_ID_output_Y = fopen( output_files_YCC[i][0], "wb");
         if( f_ID_output_Y == NULL) {
@@ -318,7 +287,6 @@ int main(void) {
             free_2d_array(Cr_temp, current_row_size);
             return( 1);
         }
-        // printf("current height size: %d, current width size: %d\n", current_row_size, current_col_size);
 
         f_ID_output_Cb = fopen( output_files_YCC[i][1], "wb");
         if( f_ID_output_Cb == NULL) {
@@ -353,8 +321,6 @@ int main(void) {
             return( 1);
         }
 
-        // printf("Writing Y component to file...\n");
-        // printf("height is %d, width is %d\n", current_row_size, current_col_size);
         for( row=0; row < current_row_size; row++) {
             for( col=0; col < current_col_size; col++) {
                 fputc( Y[row][col], f_ID_output_Y);
@@ -362,9 +328,7 @@ int main(void) {
         }
 
         fclose( f_ID_output_Y);
-        // printf("Writing Y component complete.\n");
 
-        // printf("Writing Cb and Cr components to file...\n");
         for( row=0; row < (current_row_size >> 1); row++) {
             for( col=0; col < (current_col_size >> 1); col++) {
                 fputc( Cb[row][col], f_ID_output_Cb);
@@ -373,9 +337,7 @@ int main(void) {
         }
         fclose( f_ID_output_Cr);
         fclose( f_ID_output_Cb);
-        // printf("Writing Cb and Cr components complete.\n");
 
-        // CSC_YCC_to_RGB(current_row_size, current_col_size);
         csc_ycc_to_rgb(current_row_size, current_col_size);
 
         f_ID_output_RGB = fopen( output_files_RGB[i], "wb");
@@ -392,8 +354,6 @@ int main(void) {
             return( 1);
         }
 
-        // printf("Writing output RGB image to file...\n");
-        // printf("Output saved to file: %s\n", output_files_RGB[i]);
         for( row=0; row < current_row_size; row++) {
             for( col=0; col < current_col_size; col++) {
                 fputc( R[row][col], f_ID_output_RGB);
@@ -402,10 +362,6 @@ int main(void) {
             }
         }
         fclose( f_ID_output_RGB);
-        // printf("Output RGB image writing complete.\n");
-        // printf("Color Space Conversion test bench finished successfully!\n");
-
-        // Free the dynamically allocated memory
         free_2d_array(R, current_row_size);
         free_2d_array(G, current_row_size);
         free_2d_array(B, current_row_size);

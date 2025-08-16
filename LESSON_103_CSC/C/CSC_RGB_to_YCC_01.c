@@ -21,6 +21,7 @@ extern uint8_t **Cr_temp;
 static void csc_rgb_to_ycc_brute_force_float( int row, int col);
 static void csc_rgb_to_ycc_unrolled_int( int row, int col);
 static void csc_rgb_to_ycc_vector( int row, int col);
+static void rgb_to_ycc_fixed_point_rounded(int row, int col);
 
 // =======
 static void csc_rgb_to_ycc_brute_force_int( int row, int col);
@@ -32,6 +33,70 @@ static uint8_t chrominance_downsample(
     uint8_t C_pixel_3, uint8_t C_pixel_4);
 
 // private definitions
+
+static inline uint8_t sat8(int x) {
+    if (x < 0)   return 0;
+    if (x > 255) return 255;
+    return (uint8_t)x;
+}
+
+//convert 2 x 2 RGB to YCC using fixed-point arithmetic and rounding
+static void rgb_to_ycc_fixed_point_rounded(int row, int col) {
+  //temp holders for four Cb/Cr samples
+    uint8_t Cb_pixel_00, Cb_pixel_01, Cb_pixel_10, Cb_pixel_11;
+    uint8_t Cr_pixel_00, Cr_pixel_01, Cr_pixel_10, Cr_pixel_11;
+
+    //pointer maps for selecting per-pixel slot
+    uint8_t* Cb_ptrs[2][2] = {
+        { &Cb_pixel_00, &Cb_pixel_01 },
+        { &Cb_pixel_10, &Cb_pixel_11 }
+    };
+    uint8_t* Cr_ptrs[2][2] = {
+        { &Cr_pixel_00, &Cr_pixel_01 },
+        { &Cr_pixel_10, &Cr_pixel_11 }
+    };
+
+    //2 x 2 tile using offsets
+    for (int r = 0; r < 2; ++r) {
+        for (int c = 0; c < 2; ++c) {
+            int rr = row + r;
+            int cc = col + c;
+
+            //load 8-bit RGB and widen to int 
+            int Rv = (int)R[rr][cc];
+            int Gv = (int)G[rr][cc];
+            int Bv = (int)B[rr][cc];
+
+            //compute Y
+            int Y_tmp  = (16 << K) + C11*Rv + C12*Gv + C13*Bv;
+            Y_tmp     += (1 << (K - 1));  //rounding (add half)
+            int Y_val  = Y_tmp >> K;      //scale back to 8-bit
+            Y[rr][cc] = (uint8_t)Y_val;    
+
+            //comput Cb
+            int Cb_tmp = (128 << K) - C21*Rv - C22*Gv + C23*Bv;
+            Cb_tmp    += (1 << (K - 1));   //rounding (add half)
+            int Cb_val = Cb_tmp >> K;      //scale back to 8-bit
+
+            //compute Cr
+            int Cr_tmp = (128 << K) + C31*Rv - C32*Gv - C33*Bv;
+            Cr_tmp    += (1 << (K - 1));   //rounding (add half)
+            int Cr_val = Cr_tmp >> K;      //scale back to 8-bit
+
+            uint8_t *Cb_slot = Cb_ptrs[r][c];
+            uint8_t *Cr_slot = Cr_ptrs[r][c];
+
+            //clamp 
+            *Cb_slot = sat8(Cb_val);
+            *Cr_slot = sat8(Cr_val);
+        }
+    }
+
+    //downsampling
+    Cb[row >> 1][col >> 1] = chrominance_downsample(Cb_pixel_00, Cb_pixel_01, Cb_pixel_10, Cb_pixel_11);
+    Cr[row >> 1][col >> 1] = chrominance_downsample(Cr_pixel_00, Cr_pixel_01, Cr_pixel_10, Cr_pixel_11);
+} //END of rgb_to_ycc_fixed_point_rounded()
+
 // =======
 static void csc_rgb_to_ycc_brute_force_float( int row, int col) {
 //
@@ -227,18 +292,15 @@ static uint8_t chrominance_downsample(
   }
 } // END of chrominance_downsample()
 
-
 static void csc_rgb_to_ycc_unrolled_int(int row, int col) {
   // Process a 4x4 block of pixels by unrolling the loop.
-  csc_rgb_to_ycc_brute_force_int(row, col);
-  csc_rgb_to_ycc_brute_force_int(row, col + 2);
-  csc_rgb_to_ycc_brute_force_int(row + 2, col);
-  csc_rgb_to_ycc_brute_force_int(row + 2, col + 2);
-} // END of CSC_RGB_to_YCC_unrolled_int()
+  rgb_to_ycc_fixed_point_rounded(row, col);
+  rgb_to_ycc_fixed_point_rounded(row, col + 2);
+  rgb_to_ycc_fixed_point_rounded(row + 2, col); 
+  rgb_to_ycc_fixed_point_rounded(row + 2, col + 2);
+} // END of csc_rgb_to_ycc_unrolled_int()
 
-// static void CSC_RGB_to_YCC_vector(int col, int row) {
 static void csc_rgb_to_ycc_vector(int row, int col) {
-  // printf("computing 2x2 square from height %d, width %d\n", row, col);
 
   // Grab RGB values from arrays
   int16_t R_data[4] = {
@@ -271,9 +333,9 @@ static void csc_rgb_to_ycc_vector(int row, int col) {
 
   int32x4_t Y_sum = vaddq_s32(Y_R, Y_G);
   Y_sum = vaddq_s32(Y_sum, Y_B);
-  Y_sum = vaddq_s32(Y_sum, vdupq_n_s32(16 << K));           // + (16 << K)
-  Y_sum = vaddq_s32(Y_sum, vdupq_n_s32(1 << (K-1)));        // rounding
-  int32x4_t Y_shifted = vshrq_n_s32(Y_sum, K);              // >> K
+  Y_sum = vaddq_s32(Y_sum, vdupq_n_s32(16 << K));           
+  Y_sum = vaddq_s32(Y_sum, vdupq_n_s32(1 << (K-1)));        
+  int32x4_t Y_shifted = vshrq_n_s32(Y_sum, K);              
 
   int16x4_t Y_pixels = vmovn_s32(Y_shifted); 
 
@@ -294,9 +356,9 @@ static void csc_rgb_to_ycc_vector(int row, int col) {
   Cb_sum = vsubq_s32(Cb_sum, Cb_R);
   Cb_sum = vsubq_s32(Cb_sum, Cb_G);
   Cb_sum = vaddq_s32(Cb_sum, Cb_B);
-  Cb_sum = vaddq_s32(Cb_sum, vdupq_n_s32(1 << (K-1))); // rounding
-  int32x4_t Cb_shifted = vshrq_n_s32(Cb_sum, K);        // >> K
-  int16x4_t Cb_pixels = vmovn_s32(Cb_shifted);         // four 16-bit Cb values (0..255 expected)
+  Cb_sum = vaddq_s32(Cb_sum, vdupq_n_s32(1 << (K-1))); 
+  int32x4_t Cb_shifted = vshrq_n_s32(Cb_sum, K);        
+  int16x4_t Cb_pixels = vmovn_s32(Cb_shifted);      
 
   //Cb DOWNSAMPLING
   //Pulling each pixel from Cb_pixels vector
@@ -323,8 +385,8 @@ static void csc_rgb_to_ycc_vector(int row, int col) {
   Cr_sum = vaddq_s32(Cr_sum, Cr_R);
   Cr_sum = vsubq_s32(Cr_sum, Cr_G);
   Cr_sum = vsubq_s32(Cr_sum, Cr_B);
-  Cr_sum = vaddq_s32(Cr_sum, vdupq_n_s32(1 << (K-1))); // rounding
-  int32x4_t Cr_shifted = vshrq_n_s32(Cr_sum, K);        // >> K
+  Cr_sum = vaddq_s32(Cr_sum, vdupq_n_s32(1 << (K-1))); 
+  int32x4_t Cr_shifted = vshrq_n_s32(Cr_sum, K);        
   int16x4_t Cr_pixels = vmovn_s32(Cr_shifted);
 
   //Cr DOWNSAMPLING
@@ -345,22 +407,18 @@ static void csc_rgb_to_ycc_vector(int row, int col) {
 
 // =======
 void csc_rgb_to_ycc(int input_col, int input_row) {
-// void CSC_RGB_to_YCC(const uint8_t *R_in, const uint8_t *G_in, const uint8_t *B_in, uint8_t *Y_out, uint8_t *Cb_out, uint8_t *Cr_out, int input_col, int input_row) {
-
   int row, col; // indices for row and column
-//
-  //UNCOMMENT FOR DEFAULT
-  // for( row=0; row<input_row; row+=2) {
-  //   for( col=0; col<input_col; col+=2) { 
+  int increment;
+  if(RGB_to_YCC_ROUTINE == 3) {
+    increment = 4; // unrolled version processes 4x4 blocks
+  }
+  else {
+    increment = 2; // other versions process 2x2 blocks
+  }
 
-  //UNCOMMENT FOR VECTOR OPS
-  for(row = 0; row< input_row-1; row += 2) {
-    for(col = 0; col< input_col-1; col += 2) {
-     
-  // //UNCOMMENT FOR UNROLLED VERSION    
-  // // for(row = 0; row<input_row; row +=4) {
-  // //   for(col = 0; col<input_col; col += 4) {
-  //     //printf( "\n[row,col] = [%02i,%02i]\n\n", row, col);
+  for(row = 0; row< input_row-1; row += increment) {
+    for(col = 0; col< input_col-1; col += increment) {
+
       switch (RGB_to_YCC_ROUTINE) {
         case 0:
           break;
@@ -374,24 +432,15 @@ void csc_rgb_to_ycc(int input_col, int input_row) {
           csc_rgb_to_ycc_unrolled_int(row, col);
           break;
         case 4:
-            csc_rgb_to_ycc_vector(row, col);
-
-            break;
-       
+          csc_rgb_to_ycc_vector(row, col);
           break;
+        case 5:
+          rgb_to_ycc_fixed_point_rounded(row, col);
         default:
           break;
       }
     }
   }
-
-    //  printf( "Luma_00  = %02hhx\n", Y[row+0][col+0]);
-    //  printf( "Luma_01  = %02hhx\n", Y[row+0][col+1]);
-    //  printf( "Luma_10  = %02hhx\n", Y[row+1][col+0]);
-    //  printf( "Luma_11  = %02hhx\n\n", Y[row+1][col+1]);
-    // }
-  // }
-
 } // END of CSC_RGB_to_YCC()
 
 
